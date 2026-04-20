@@ -19,8 +19,8 @@ coursework.
   `mark_studied`, `read_course_file` (renders PDF pages to PNGs for vision).
 - Dark visual design — Fraunces serif + Inter Tight + JetBrains Mono, OKLCH
   palette, ink-dot signature motif, 3 px course-accent stripes.
-- Empty-by-default seed + a settings singleton so new deploys boot with an
-  onboarding screen rather than a pre-populated dashboard.
+- Empty-by-default schema + a self-healing settings singleton so new deploys
+  boot to an onboarding screen rather than a pre-populated dashboard.
 - Docs: [INSTALL.md](./INSTALL.md), [CONTRIBUTING.md](./CONTRIBUTING.md),
   [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md), plus templates for a Claude.ai
   Project system prompt and a Claude Design redesign brief (under `docs/`).

@@ -63,11 +63,9 @@ Open `.env`, paste the Supabase URL, the service key, the password hash, and the
 
 **4. Apply the migrations.** In Supabase → **SQL Editor**, paste and run each file under `db/migrations/` in order (`0001_init.sql` → `0002_lectures.sql` → `0003_oauth.sql` → `0004_app_settings.sql`).
 
-**5. Seed + run.**
+**5. Run it.**
 
 ```bash
-uv run python -m db.seed             # one-time: create the settings row
-
 # Terminal 1
 uv run uvicorn app.main:app --reload        # → http://localhost:8000
 
@@ -126,8 +124,6 @@ app/                FastAPI + MCP server (Python, uv-managed)
   schemas.py        Pydantic models
 db/
   migrations/       Four SQL files — apply in numeric order to any Postgres
-  seed.py           Minimal seed (just the app_settings singleton row)
-  seed_example.py   Optional realistic-data seed for evaluating the UI
 web/
   src/              Vite + React 19 + Tailwind + shadcn/ui frontend
 scripts/

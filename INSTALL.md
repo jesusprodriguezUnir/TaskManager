@@ -106,11 +106,9 @@ for f in db/migrations/*.sql; do psql "$SUPABASE_DB_URL" -f "$f"; done
 
 ## 5. Run it locally
 
-Seed the singleton settings row, then start the two servers:
+Start the two servers in separate terminals:
 
 ```bash
-uv run python -m db.seed                            # creates the app_settings row
-
 # Terminal 1 — backend
 uv run uvicorn app.main:app --reload
 # → http://localhost:8000/api/docs  (interactive API docs)

@@ -34,7 +34,6 @@ See [INSTALL.md](./INSTALL.md) for the full walkthrough. TL;DR:
 ```bash
 uv sync
 cp .env.example .env   # fill in Supabase creds, APP_PASSWORD_HASH, SESSION_SECRET
-uv run python -m db.seed
 uv run uvicorn app.main:app --reload
 
 cd web && pnpm install && pnpm dev
