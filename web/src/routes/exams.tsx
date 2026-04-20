@@ -5,29 +5,29 @@ import { CourseAccentBar } from "@/components/common/course-accent";
 import { StatusChip } from "@/components/common/status-chip";
 import { CountdownChip } from "@/components/common/countdown-chip";
 import { EmptyState } from "@/components/common/empty-state";
-import { useCourses, useKlausuren } from "@/lib/queries";
+import { useCourses, useExams } from "@/lib/queries";
 import { fmtDateTime } from "@/lib/time";
 
-export default function Klausuren() {
+export default function Exams() {
   const courses = useCourses();
-  const klausuren = useKlausuren();
+  const exams = useExams();
 
-  if (courses.isPending || klausuren.isPending) {
+  if (courses.isPending || exams.isPending) {
     return (
       <>
-        <Header title="Klausuren" />
+        <Header title="Exams" />
         <div className="px-4 py-12 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted" />
         </div>
       </>
     );
   }
-  if (courses.error || klausuren.error || !courses.data || !klausuren.data) {
+  if (courses.error || exams.error || !courses.data || !exams.data) {
     return (
       <>
-        <Header title="Klausuren" />
+        <Header title="Exams" />
         <div className="px-4 py-12 text-center text-sm text-critical">
-          Couldn't load Klausuren.
+          Couldn't load exams.
         </div>
       </>
     );
@@ -35,15 +35,15 @@ export default function Klausuren() {
 
   return (
     <>
-      <Header title="Klausuren" subtitle="End-of-semester exam overview" />
+      <Header title="Exams" subtitle="End-of-semester exam overview" />
       <div className="px-4 md:px-8 py-4 md:py-6 max-w-[1200px] mx-auto w-full">
-        {klausuren.data.length === 0 ? (
-          <EmptyState title="No Klausuren tracked yet" />
+        {exams.data.length === 0 ? (
+          <EmptyState title="No exams tracked yet" />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {courses.data.map((c) => {
-              const k = klausuren.data!.find((x) => x.course_code === c.code);
-              if (!k) return null;
+              const e = exams.data!.find((x) => x.course_code === c.code);
+              if (!e) return null;
               return (
                 <Link
                   key={c.code}
@@ -61,50 +61,50 @@ export default function Klausuren() {
                         </div>
                         <p className="text-base font-semibold mt-0.5">{c.full_name}</p>
                       </div>
-                      <StatusChip status={k.status} />
+                      <StatusChip status={e.status} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-sm">
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-muted">Date</p>
                         <p className="font-medium">
-                          {k.scheduled_at ? fmtDateTime(k.scheduled_at) : <span className="text-muted">TBD</span>}
+                          {e.scheduled_at ? fmtDateTime(e.scheduled_at) : <span className="text-muted">TBD</span>}
                         </p>
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-muted">Duration</p>
-                        <p className="font-medium">{k.duration_min ? `${k.duration_min} min` : "—"}</p>
+                        <p className="font-medium">{e.duration_min ? `${e.duration_min} min` : "—"}</p>
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-muted">Structure</p>
-                        <p className="font-medium">{k.structure ?? "—"}</p>
+                        <p className="font-medium">{e.structure ?? "—"}</p>
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-muted">Aids</p>
-                        <p className="font-medium">{k.aids_allowed ?? "—"}</p>
+                        <p className="font-medium">{e.aids_allowed ?? "—"}</p>
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-muted">Weight</p>
-                        <p className="font-medium">{k.weight_pct}%</p>
+                        <p className="font-medium">{e.weight_pct}%</p>
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-muted">Retries</p>
                         <p className="font-medium">
-                          {c.klausur_retries === null || c.klausur_retries === undefined
+                          {c.exam_retries === null || c.exam_retries === undefined
                             ? "Unlimited"
-                            : c.klausur_retries}
+                            : c.exam_retries}
                         </p>
                       </div>
                     </div>
 
-                    {k.scheduled_at && (
+                    {e.scheduled_at && (
                       <div className="flex items-center gap-2 pt-1">
                         <span className="text-xs text-muted">Countdown:</span>
-                        <CountdownChip target={k.scheduled_at} />
+                        <CountdownChip target={e.scheduled_at} />
                       </div>
                     )}
 
-                    {k.notes && <p className="text-xs text-muted">{k.notes}</p>}
+                    {e.notes && <p className="text-xs text-muted">{e.notes}</p>}
                   </div>
                 </Link>
               );

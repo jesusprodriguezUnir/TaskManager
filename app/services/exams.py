@@ -1,18 +1,18 @@
 from typing import List
 from ..db import supabase
-from ..schemas import Klausur, KlausurPatch
+from ..schemas import Exam, ExamPatch
 from ._helpers import model_dump_clean
 
 
-def list_klausuren() -> List[Klausur]:
-    resp = supabase().table("klausuren").select("*").execute()
-    return [Klausur.model_validate(r) for r in resp.data or []]
+def list_exams() -> List[Exam]:
+    resp = supabase().table("exams").select("*").execute()
+    return [Exam.model_validate(r) for r in resp.data or []]
 
 
-def get_klausur(course_code: str) -> Klausur | None:
+def get_exam(course_code: str) -> Exam | None:
     resp = (
         supabase()
-        .table("klausuren")
+        .table("exams")
         .select("*")
         .eq("course_code", course_code)
         .limit(1)
@@ -20,19 +20,19 @@ def get_klausur(course_code: str) -> Klausur | None:
     )
     if not resp.data:
         return None
-    return Klausur.model_validate(resp.data[0])
+    return Exam.model_validate(resp.data[0])
 
 
-def update_klausur(course_code: str, patch: KlausurPatch) -> Klausur:
+def update_exam(course_code: str, patch: ExamPatch) -> Exam:
     data = model_dump_clean(patch)
-    existing = get_klausur(course_code)
+    existing = get_exam(course_code)
     if existing is None:
         payload = {"course_code": course_code, **data}
-        resp = supabase().table("klausuren").insert(payload).execute()
+        resp = supabase().table("exams").insert(payload).execute()
     else:
         if not data:
             return existing
         resp = (
-            supabase().table("klausuren").update(data).eq("course_code", course_code).execute()
+            supabase().table("exams").update(data).eq("course_code", course_code).execute()
         )
-    return Klausur.model_validate(resp.data[0])
+    return Exam.model_validate(resp.data[0])
