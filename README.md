@@ -1,4 +1,8 @@
+<p align="right"><sub><a href="#deutsch">🇩🇪 Auf Deutsch lesen ↓</a></sub></p>
+
 # study-dashboard
+
+A self-hostable personal study dashboard. Track your **courses, schedule, lectures, study topics, deliverables, and tasks** in one place — and let **Claude** use the app from your **browser**, **phone**, **desktop**, or **Claude Code**.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Stack: FastAPI + React 19](https://img.shields.io/badge/stack-FastAPI%20%2B%20React%2019-0ea5e9)
@@ -6,11 +10,6 @@
 ![AI: MCP-native (~45 tools)](https://img.shields.io/badge/AI-MCP--native%20~45%20tools-7c3aed)
 ![Self-hosted](https://img.shields.io/badge/hosting-self--hosted-111)
 ![Status: alpha](https://img.shields.io/badge/status-alpha-orange)
-
-<details name="lang" open>
-<summary><b>🇬🇧 English</b></summary>
-
-A self-hostable personal study dashboard. Track your **courses, schedule, lectures, study topics, deliverables, and tasks** in one place — and let **Claude** use the app from your **browser**, **phone**, **desktop**, or **Claude Code**.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 ![Courses](docs/screenshots/courses.png)
@@ -233,10 +232,14 @@ If you're unsure whether a bigger change is in scope, a quick *"would you take a
 
 Full contributor notes (setup, style, testing, what's likely in vs. out of scope) live in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-</details>
+---
 
-<details name="lang">
-<summary><b>🇩🇪 Deutsch</b></summary>
+<a id="deutsch"></a>
+
+<details>
+<summary><b>🇩🇪 Auf Deutsch lesen</b></summary>
+
+<br>
 
 Ein self-hostbares, persönliches Studien-Dashboard. Behalte deine **Kurse, deinen Stundenplan, Vorlesungen, Lernthemen, Abgaben und Aufgaben** an einem Ort im Blick — und lass **Claude** die App aus deinem **Browser**, vom **Handy**, vom **Desktop** oder aus **Claude Code** heraus bedienen.
 
