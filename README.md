@@ -20,7 +20,44 @@ Claude calls `list_course_files` to locate the PDF in the app's file store, then
 
 ## How I use this
 
-A typical week of studying with Claude + the dashboard:
+### The one-time seed
+
+Before any of the day-to-day stuff, I had to get a semester's worth of courses, schedules, exam rules, and lecture material into the app. I didn't want to do that by hand and I didn't want to write a bespoke import script, so I let Claude Code do it:
+
+1. **Pulled everything off my university's LMS *(Moodle, in my case)* into a local folder.** For each course I downloaded the syllabus, schedule, the professor's organizational slides, existing exercise sheets *(Übungsblätter)*, and the official module catalogue *(Modulhandbuch)*. Structure on disk:
+
+   ```
+   Semester 4/
+     semester.md              # one-liner per course, semester dates, links
+     schedule.md              # weekly schedule (my source of truth)
+     module-catalogue.pdf     # (Modulhandbuch)
+     ASB/
+       course.md              # structured source-of-truth (see below)
+       00_introduction.pdf    # prof's org slides
+       exercise-sheets/       # (Übungsblätter)
+     Computer-Architecture/   # (Rechnerarchitektur)
+       course.md
+       1 Intro und History.pdf
+       ...
+     ...
+   ```
+
+2. **Had Claude Code build one `course.md` per course.** It read every PDF, the LMS *(Moodle)* copy, and the module catalogue entry, and produced a normalized markdown with a `Meta` table (official name, module code, ECTS, professor, language, exam format, retries, weight), the weekly schedule in the prof's own words, and any grading rules / attendance requirements (e.g. "lab attendance *(Praktikum)* ≥ 75 % for exam admission"). That file became the course's source of truth — everything else downstream pulls from it.
+
+3. **Seeded the dashboard via the MCP connector.** With Claude Code pointed at the running dashboard over MCP, I asked it to walk through each `course.md` and:
+   - `create_course` with the meta (code, full name, color, ECTS, professor, language, and a `folder_name` matching the local folder — so the course-detail **Files** tab scopes to the right prefix in the bucket)
+   - `upsert_schedule_slot` for every recurring slot in `schedule.md` (lecture / tutorial / lab / seminar — or in German: Vorlesung / Übung / Tutorium / Praktikum)
+   - `update_klausur` with the exam format + retries
+   - `create_deliverable` for every known exercise sheet / project deadline in the semester
+   - upload every PDF from each course folder into the `course_files` bucket (so `read_course_file` can hand them to Claude as vision later)
+
+   > If you don't want to keep a local `Semester 4/` folder at all, every PDF upload can also happen from inside the app — drag-and-drop into the **Files** view. The local folder is just what works for me because I'm already downloading the files anyway.
+
+4. **Opened the dashboard → everything was there.** Weekly grid populated, four courses with accents, exam info per course, every exercise sheet showing up in the deadlines list.
+
+**From then on it's incremental.** New lectures land on the LMS *(Moodle)*, I either drop the PDFs into the corresponding `Semester 4/<course>/` folder on my laptop (Claude Code picks them up and uploads) or drag-and-drop them straight into the app's **Files** view. If the `course.md` needs an update (new grading rule announced, exam date confirmed, topic added), Claude edits the markdown *and* pushes the change through the MCP (`update_course`, `update_klausur`, etc.) so the dashboard and the source-of-truth stay aligned.
+
+### A typical week
 
 **Right after a lecture.** Walking out of class, I open Claude on my phone: *"We just finished VL 4 of ASB, covered pumping lemma, closure properties, and non-regularity of aⁿbⁿ."* Claude creates the lecture #4, adds the study topics with proper descriptions linked to lecture #4, marks it attended. couple of seconds. The dashboard is caught up.
 
