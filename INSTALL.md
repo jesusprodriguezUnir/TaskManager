@@ -18,10 +18,50 @@ End-to-end: **~15 minutes** on a good connection.
 
 ## 0. Prereqs
 
-- **Node 20+** and **pnpm** (via [corepack](https://pnpm.io/installation#using-corepack) — easiest path).
-- **Python 3.12** and [**`uv`**](https://docs.astral.sh/uv/).
+You'll need Node 20+, pnpm, Python 3.12, and [`uv`](https://docs.astral.sh/uv/). One-liners per OS:
+
+**Windows** (PowerShell or terminal):
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+winget install --id=astral-sh.uv
+uv python install 3.12
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+**macOS** (with [Homebrew](https://brew.sh)):
+
+```bash
+brew install node uv
+uv python install 3.12
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+**Linux**:
+
+```bash
+# Node via nvm (https://github.com/nvm-sh/nvm#install--update-script)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+nvm install 20
+
+# uv — it'll install Python 3.12 for us
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv python install 3.12
+
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+Already have some of them? Skip the lines you don't need.
+
+You'll also need:
+
 - A **Supabase** account (free tier is fine). [Sign up](https://supabase.com).
 - A **Vercel** account *(only if you want the app reachable from the internet — i.e. Claude.ai and the iOS app. Any other Python-capable host works too, `vercel.json` is just the pre-configured path.)*
+
+> On Windows, `python` may not be on your PATH even though Python is installed — the launcher is called `py` instead. Anywhere you see `python -c '...'` below, `py -c '...'` works equivalently.
 
 ## 1. Create your Supabase project
 
@@ -54,7 +94,7 @@ uv run python -m app.tools.hashpw 'pick-a-strong-password'
 # → paste the full $argon2id$... line into APP_PASSWORD_HASH
 
 # Random session-signing secret
-python -c 'import secrets; print(secrets.token_urlsafe(48))'
+python -c 'import secrets; print(secrets.token_urlsafe(48))'   # or `py` on Windows
 # → paste into SESSION_SECRET
 ```
 

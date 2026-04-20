@@ -78,7 +78,7 @@ cd web && pnpm install && cd ..      # frontend deps
 ```bash
 cp .env.example .env
 uv run python -m app.tools.hashpw 'pick-a-strong-password'     # → APP_PASSWORD_HASH
-python -c 'import secrets; print(secrets.token_urlsafe(48))'   # → SESSION_SECRET
+python -c 'import secrets; print(secrets.token_urlsafe(48))'   # → SESSION_SECRET  (use `py` on Windows if `python` isn't on PATH)
 ```
 
 Open `.env`, paste the Supabase URL, the service key, the password hash, and the session secret. Create `web/.env.local` with `VITE_API_BASE_URL=http://localhost:8000`.
