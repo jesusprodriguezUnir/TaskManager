@@ -45,7 +45,7 @@ export function Greeting({
           <span className="ink-dot ink-dot-lg inline-block mr-[14px] -translate-y-[4px] align-middle" />
           {copy}
         </h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13.5px] text-muted">
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-[13.5px] text-muted">
           {nextUp && (
             <span
               className="font-mono text-[12px] px-[9px] py-[4px] border border-border rounded-full text-fg-dim bg-surface inline-flex items-center gap-1.5"
