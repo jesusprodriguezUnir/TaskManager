@@ -7,7 +7,7 @@ A self-hostable personal study dashboard. Track your **courses, schedule, lectur
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Stack: FastAPI + React 19](https://img.shields.io/badge/stack-FastAPI%20%2B%20React%2019-0ea5e9)
 ![Database: Supabase Postgres](https://img.shields.io/badge/db-Supabase%20Postgres-3ecf8e)
-![AI: MCP-native (~45 tools)](https://img.shields.io/badge/AI-MCP--native%20~45%20tools-7c3aed)
+![AI: MCP-native (44 tools)](https://img.shields.io/badge/AI-MCP--native%2044%20tools-7c3aed)
 ![Self-hosted](https://img.shields.io/badge/hosting-self--hosted-111)
 ![Status: alpha](https://img.shields.io/badge/status-alpha-orange)
 
@@ -105,7 +105,7 @@ The dashboard is where I see things. Claude is how I edit them. Same database be
 
 ## What makes it different
 
-The MCP server ships with **~45 tools — anything you can do in the UI, Claude can do too**. Create a study topic, mark something studied, upload a file, render a PDF as images, whatever.
+The MCP server ships with **44 tools — anything you can do in the UI, Claude can do too**. Create a study topic, mark something studied, upload a file, render a PDF as images, whatever.
 
 Plug it into Claude.ai as a custom connector (full OAuth 2.1) and those tools are live in **Claude Code on your laptop, claude.ai in your browser, and the Claude iOS app on your phone**. Open Claude anywhere and it has the same view of your coursework that you do.
 
@@ -195,7 +195,7 @@ claude mcp add --transport http --scope user \
   study-dashboard https://your-project.vercel.app/mcp
 ```
 
-Both flows open your dashboard's login in a browser for the one-time OAuth consent. After that, the same ~45 tools are live wherever you use Claude:
+Both flows open your dashboard's login in a browser for the one-time OAuth consent. After that, the same 44 tools are live wherever you use Claude:
 
 - *"list my courses"* / *"what's due this week?"* / *"what did we cover in RN last week?"*
 - *"we just finished VL 3 of ASB, we covered topics X, Y, Z — create the lecture and topics"* → Claude calls `create_lecture` + `add_lecture_topics`
@@ -213,7 +213,7 @@ Full walkthrough (including curl-based verification): [`INSTALL.md#5-connect-an-
 app/                FastAPI + MCP server (Python, uv-managed)
   routers/          HTTP endpoints
   services/         Supabase queries + business logic
-  mcp_tools.py      The ~45 MCP tools
+  mcp_tools.py      The 44 MCP tools
   schemas.py        Pydantic models
 supabase/
   migrations/       Five SQL files — applied by `supabase db push` (or pasted into the SQL editor, in filename order)
@@ -355,7 +355,7 @@ Das Dashboard ist, wo ich Dinge sehe. Claude ist, wie ich sie bearbeite. Dieselb
 
 ## Was es ausmacht
 
-Der MCP-Server bringt **~45 Tools — alles, was du in der UI machen kannst, kann Claude auch**. Lernthema anlegen, etwas als studied markieren, eine Datei hochladen, ein PDF als Bilder rendern, was auch immer.
+Der MCP-Server bringt **44 Tools — alles, was du in der UI machen kannst, kann Claude auch**. Lernthema anlegen, etwas als studied markieren, eine Datei hochladen, ein PDF als Bilder rendern, was auch immer.
 
 Stöpsel den Connector in Claude.ai (voller OAuth 2.1) und dieselben Tools sind in **Claude Code auf dem Laptop, Claude.ai im Browser und der Claude-iOS-App auf dem Handy** live. Egal wo du Claude öffnest — es hat denselben Blick auf deinen Studienalltag wie du.
 
@@ -445,7 +445,7 @@ claude mcp add --transport http --scope user \
   study-dashboard https://your-project.vercel.app/mcp
 ```
 
-Beide Flows öffnen den Login deines Dashboards im Browser fürs einmalige OAuth-Consent. Danach sind dieselben ~45 Tools überall verfügbar, wo du Claude nutzt:
+Beide Flows öffnen den Login deines Dashboards im Browser fürs einmalige OAuth-Consent. Danach sind dieselben 44 Tools überall verfügbar, wo du Claude nutzt:
 
 - *„list meine Kurse"* / *„was ist diese Woche fällig?"* / *„was haben wir letzte Woche in RN gemacht?"*
 - *„wir sind mit VL 3 von ASB fertig, wir haben X, Y, Z behandelt — leg die Vorlesung und die Themen an"* → Claude ruft `create_lecture` + `add_lecture_topics`
@@ -463,7 +463,7 @@ Vollständiger Walkthrough (inkl. curl-basierter Verifikation): [`INSTALL.md#5-c
 app/                FastAPI + MCP-Server (Python, via uv verwaltet)
   routers/          HTTP-Endpoints
   services/         Supabase-Queries + Business-Logik
-  mcp_tools.py      die ~45 MCP-Tools
+  mcp_tools.py      die 44 MCP-Tools
   schemas.py        Pydantic-Modelle
 supabase/
   migrations/       Fünf SQL-Dateien — via `supabase db push` angewendet (oder in den SQL Editor kopiert, in Dateinamen-Reihenfolge)
