@@ -1,21 +1,9 @@
-// Locale list used by Settings → Semester picker. We only ship English + German
-// for now; the label is the actual date format so users pick by sample, not by
-// language name (the field is "Date format", not "Language").
-function sampleDate(locale: string): string {
-  // Fixed reference date so the option labels are stable across renders and
-  // unambiguous about ordering (year is recognisable regardless of locale).
-  const ref = new Date(2026, 0, 21); // 21 Jan 2026
-  try {
-    return new Intl.DateTimeFormat(locale).format(ref);
-  } catch {
-    return locale;
-  }
-}
-
+// Locale list used by Settings → Semester picker. The field is "Date format",
+// not "Language" — the label is the canonical pattern so users pick by shape.
 export const LOCALE_OPTIONS: { value: string; label: string }[] = [
-  { value: "en-US", label: sampleDate("en-US") },
-  { value: "en-GB", label: sampleDate("en-GB") },
-  { value: "de-DE", label: sampleDate("de-DE") },
+  { value: "en-US", label: "MM/DD/YYYY" },
+  { value: "en-GB", label: "DD/MM/YYYY" },
+  { value: "de-DE", label: "DD.MM.YYYY" },
 ];
 
 // Full IANA timezone list via Intl.supportedValuesOf — supported in Chrome 99+,
