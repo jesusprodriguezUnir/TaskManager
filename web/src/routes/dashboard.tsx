@@ -41,6 +41,7 @@ export default function Dashboard() {
 function EditorialDashboard() {
   const { t } = useTranslation();
   const { data, isPending, error } = useDashboard();
+  const settings = useAppSettings();
 
   if (isPending) {
     return (
@@ -231,6 +232,7 @@ function EditorialDashboard() {
         todayWeekday={todayWeekday}
         monday={monday}
         now={now}
+        semesterStart={settings.data?.semester_start}
       />
 
       <SectionHeader title={t("dashboard.section.courses")} meta={`${data.courses.length}`} />
@@ -281,7 +283,7 @@ function EditorialDashboard() {
 }
 
 function DashboardTopStrip({ now }: { now: Date }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
   const settings = useAppSettings();
   const semesterLabel = settings.data?.semester_label?.trim() || null;
@@ -299,7 +301,7 @@ function DashboardTopStrip({ now }: { now: Date }) {
   if (semesterWeek !== null) {
     items.push({
       key: "week",
-      node: <span>Week {String(semesterWeek).padStart(2, "0")}</span>,
+      node: <span>{t("common.week")} {String(semesterWeek).padStart(2, "0")}</span>,
     });
   }
 

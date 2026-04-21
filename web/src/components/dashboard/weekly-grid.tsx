@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Slot, CourseCode } from "@/data/types";
 import { courseAccentVar } from "@/lib/theme";
 import { cn } from "@/lib/cn";
+import { semesterWeek, isoWeek } from "@/lib/time";
 
 const DAY_ISOS: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5];
 
@@ -26,14 +27,16 @@ export function WeeklyGrid({
   todayWeekday,
   monday,
   now,
+  semesterStart,
 }: {
   slots: Slot[];
   todayWeekday: number;
   /** Monday of the current week (for date labels). */
   monday: Date;
   now: Date;
+  semesterStart?: string | null;
 }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
   const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
   const totalHeight = (END_HOUR - START_HOUR) * PX_PER_HOUR;
@@ -48,7 +51,7 @@ export function WeeklyGrid({
     : 0;
   const nowTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-  const cw = isoWeek(monday);
+  const cw = semesterWeek(now, semesterStart) ?? isoWeek(monday);
 
   return (
     <div className="card overflow-hidden">
@@ -61,7 +64,7 @@ export function WeeklyGrid({
         {/* Corner */}
         <div className="flex flex-col gap-1 px-3 pt-3.5 pb-3 border-b border-border border-r border-hairline bg-surface-2">
           <span className="font-mono text-[10.5px] text-subtle tracking-[0.08em]">
-            {i18n.language === "de" ? "KW" : "CW"} {cw}
+            {t("common.week")} {cw}
           </span>
           <span className="font-mono text-[10.5px] text-muted">
             {monday.toLocaleString(localeCode, { month: "short" })}
@@ -198,10 +201,3 @@ function LectureBlock({ slot }: { slot: Slot }) {
 }
 
 /** ISO week number — matches the design header. */
-function isoWeek(d: Date): number {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}

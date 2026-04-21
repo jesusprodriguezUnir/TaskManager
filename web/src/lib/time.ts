@@ -73,3 +73,23 @@ export function humanWhen(d: Date | string): string {
 
 export const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export const weekdayLabelsShort = ["M", "T", "W", "T", "F", "S", "S"];
+
+// Week-of-semester: 1-based count from the configured semester_start date.
+// Returns null if the semester start is unknown; returns 0 before it begins.
+export function semesterWeek(now: Date, startIso: string | null | undefined): number | null {
+  if (!startIso) return null;
+  const start = new Date(startIso + "T00:00:00");
+  const ms = now.getTime() - start.getTime();
+  if (ms < 0) return 0;
+  return Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) + 1;
+}
+
+// ISO-8601 calendar week number (1..53). Used as a fallback when no
+// semester_start is configured.
+export function isoWeek(d: Date): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}

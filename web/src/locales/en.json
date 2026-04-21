@@ -25,7 +25,9 @@
     "undo": "Undo",
     "restored": "Restored",
     "reopened": "Reopened",
-    "personal": "Personal"
+    "personal": "Personal",
+    "week": "Week",
+    "preStart": "Pre-start"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -463,6 +465,7 @@
   "zine": {
     "heyYou": "~ hey you ~",
     "hi": "hi",
+    "wk": "Week",
     "nextUp": "NEXT UP",
     "unstudiedAcross": "<b>{{topics}} topic(s)</b> unstudied across <b>{{courses}} course(s)</b> — triage what matters, skip the rest.",
     "unstudiedAcrossLead": "unstudied across",
@@ -625,8 +628,8 @@
     },
     "tableau": "Weekly Tableau",
     "tableauSub": "— monday through friday",
-    "engagementsWk_one": "{{count}} engagement · wk {{wk}}",
-    "engagementsWk_other": "{{count}} engagements · wk {{wk}}",
+    "engagementsWk_one": "{{count}} engagement · week {{wk}}",
+    "engagementsWk_other": "{{count}} engagements · week {{wk}}",
     "volumes": "The Volumes",
     "volumesSub": "— courses, by plate",
     "ectsModules_one": "{{ects}} ECTS · {{count}} module",
@@ -644,13 +647,13 @@
       "nothingOpen": "nothing open.",
       "noTasks": "no tasks."
     },
-    "wk": "WK"
+    "wk": "Week"
   },
   "swiss": {
     "loading": "loading…",
     "loadFailed": "could not load dashboard",
     "fallbackName": "Student",
-    "wk": "Wk.",
+    "wk": "Week",
     "morningBriefing": "Morning briefing",
     "youAre": "You are",
     "topicsBehind_one": "{{count}} topic behind",

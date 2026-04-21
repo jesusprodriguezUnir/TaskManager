@@ -25,7 +25,9 @@
     "undo": "Rückgängig",
     "restored": "Wiederhergestellt",
     "reopened": "Wieder geöffnet",
-    "personal": "Persönlich"
+    "personal": "Persönlich",
+    "week": "Woche",
+    "preStart": "vor Semester"
   },
   "nav": {
     "dashboard": "Übersicht",
@@ -463,6 +465,7 @@
   "zine": {
     "heyYou": "~ hey ~",
     "hi": "hallo",
+    "wk": "Woche",
     "nextUp": "ALS NÄCHSTES",
     "unstudiedAcross": "<b>{{topics}} Thema/Themen</b> offen in <b>{{courses}} Kurs(en)</b> — triagiere, was zählt, lass den Rest liegen.",
     "unstudiedAcrossLead": "offen in",
@@ -625,8 +628,8 @@
     },
     "tableau": "Wochentableau",
     "tableauSub": "— Montag bis Freitag",
-    "engagementsWk_one": "{{count}} Termin · KW {{wk}}",
-    "engagementsWk_other": "{{count}} Termine · KW {{wk}}",
+    "engagementsWk_one": "{{count}} Termin · Woche {{wk}}",
+    "engagementsWk_other": "{{count}} Termine · Woche {{wk}}",
     "volumes": "Die Bände",
     "volumesSub": "— Kurse, nach Tafel",
     "ectsModules_one": "{{ects}} ECTS · {{count}} Modul",
@@ -644,13 +647,13 @@
       "nothingOpen": "nichts offen.",
       "noTasks": "keine Aufgaben."
     },
-    "wk": "KW"
+    "wk": "Woche"
   },
   "swiss": {
     "loading": "lade…",
     "loadFailed": "Übersicht konnte nicht geladen werden",
     "fallbackName": "Student",
-    "wk": "KW",
+    "wk": "Woche",
     "morningBriefing": "Morgendlicher Überblick",
     "youAre": "Du bist",
     "topicsBehind_one": "{{count}} Thema im Rückstand",

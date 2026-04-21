@@ -14,6 +14,7 @@ import {
   useReopenTask,
 } from "@/lib/queries";
 import type { CourseCode } from "@/data/types";
+import { semesterWeek, isoWeek } from "@/lib/time";
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 function cv(code: string) { return `var(--course-${code.toLowerCase()})`; }
@@ -240,7 +241,7 @@ export function SwissDashboard() {
         <div className="s-meta">{t("swiss.engagements", { count: eventsThisWeek })}</div>
       </div>
       <div className="s-c-12">
-        <SwissSchedule slots={data.slots} monday={monday} now={now} localeCode={localeCode} />
+        <SwissSchedule slots={data.slots} monday={monday} now={now} localeCode={localeCode} semesterStart={settings.data?.semester_start} />
       </div>
 
       {/* COURSES */}
@@ -298,12 +299,13 @@ export function SwissDashboard() {
 }
 
 function SwissSchedule({
-  slots, monday, now, localeCode,
+  slots, monday, now, localeCode, semesterStart,
 }: {
   slots: { id: string; weekday: number; start_time: string; end_time: string; kind: string; room?: string; course_code: string }[];
   monday: Date;
   now: Date;
   localeCode: string;
+  semesterStart?: string | null;
 }) {
   const { t } = useTranslation();
   const hours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
@@ -321,7 +323,7 @@ function SwissSchedule({
     todayIdx >= 1 && todayIdx <= 5 &&
     now.getHours() >= sH && now.getHours() < sH + hours.length;
 
-  const cw = isoWeek(monday);
+  const cw = semesterWeek(now, semesterStart) ?? isoWeek(monday);
   const days = [1, 2, 3, 4, 5].map((i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + (i - 1));
@@ -523,18 +525,3 @@ function SwissTasks({
   );
 }
 
-function semesterWeek(now: Date, startIso: string | null | undefined): number | null {
-  if (!startIso) return null;
-  const start = new Date(startIso + "T00:00:00");
-  const ms = now.getTime() - start.getTime();
-  if (ms < 0) return 0;
-  return Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) + 1;
-}
-
-function isoWeek(d: Date): number {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}

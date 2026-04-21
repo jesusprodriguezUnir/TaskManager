@@ -16,6 +16,7 @@ import {
   useReopenTask,
 } from "@/lib/queries";
 import type { CourseCode } from "@/data/types";
+import { semesterWeek, isoWeek } from "@/lib/time";
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 function cv(code: string) { return `var(--course-${code.toLowerCase()})`; }
@@ -114,7 +115,7 @@ export function LibraryDashboard() {
   });
   const morningOf = now.toLocaleDateString(localeCode, { day: "numeric", month: "long" });
 
-  const cw = isoWeek(monday);
+  const cw = semesterWeek(now, settings.data?.semester_start) ?? isoWeek(monday);
   const registerTitle = t("library.registerTitle", { name: firstName });
 
   return (
@@ -275,7 +276,7 @@ export function LibraryDashboard() {
         <div className="l-t">{t("library.tableau")} <em>{t("library.tableauSub")}</em></div>
         <div className="l-meta">{t("library.engagementsWk", { count: eventsThisWeek, wk: ROMAN_LOWER[cw - 1] ?? pad(cw) })}</div>
       </div>
-      <LibraryTableau slots={data.slots} monday={monday} now={now} localeCode={localeCode} />
+      <LibraryTableau slots={data.slots} monday={monday} now={now} localeCode={localeCode} semesterStart={settings.data?.semester_start} />
 
       {/* PLATES */}
       <div className="l-sec-head">
@@ -341,12 +342,13 @@ export function LibraryDashboard() {
 }
 
 function LibraryTableau({
-  slots, monday, now, localeCode,
+  slots, monday, now, localeCode, semesterStart,
 }: {
   slots: { id: string; weekday: number; start_time: string; end_time: string; kind: string; room?: string; course_code: string }[];
   monday: Date;
   now: Date;
   localeCode: string;
+  semesterStart?: string | null;
 }) {
   const { t } = useTranslation();
   const hours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
@@ -374,13 +376,13 @@ function LibraryTableau({
     };
   });
 
-  const cw = isoWeek(monday);
+  const cw = semesterWeek(now, semesterStart) ?? isoWeek(monday);
 
   return (
     <div className="l-tableau">
       <div className="l-tgrid">
         <div className="l-th l-corner">
-          <div className="l-dow">{t("library.wk")} · {ROMAN_UPPER[cw - 1] ?? pad(cw)}</div>
+          <div className="l-dow">{t("library.week")} · {ROMAN_UPPER[cw - 1] ?? pad(cw)}</div>
           <div className="l-dn">{monday.toLocaleDateString(localeCode, { month: "short" }).toUpperCase()}</div>
         </div>
         {days.map((day) => (
@@ -564,10 +566,3 @@ function LibraryTasks({
   );
 }
 
-function isoWeek(d: Date): number {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}

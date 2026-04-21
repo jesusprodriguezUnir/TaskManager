@@ -13,14 +13,7 @@ import { useAppSettings, useCourses, useDashboard } from "@/lib/queries";
 import { courseAccentVar } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 import type { CourseCode } from "@/data/types";
-
-function semesterWeek(now: Date, startIso: string | null | undefined): number | null {
-  if (!startIso) return null;
-  const start = new Date(startIso + "T00:00:00");
-  const ms = now.getTime() - start.getTime();
-  if (ms < 0) return 0;
-  return Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) + 1;
-}
+import { semesterWeek } from "@/lib/time";
 
 function deriveMonogram(name: string | null | undefined, fallback: string): string {
   if (!name) return fallback;
@@ -105,7 +98,7 @@ export function Sidebar() {
             {semesterLabel && week !== null && <span className="h-px w-[14px] bg-border-strong mx-2 flex-none" />}
             {week !== null && (
               <span className="flex-none">
-                {week > 0 ? `Week ${String(week).padStart(2, "0")}` : "Pre-start"}
+                {week > 0 ? `${t("common.week")} ${String(week).padStart(2, "0")}` : t("common.preStart")}
               </span>
             )}
           </div>

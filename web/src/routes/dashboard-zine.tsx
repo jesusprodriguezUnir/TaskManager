@@ -16,6 +16,7 @@ import {
   useReopenTask,
 } from "@/lib/queries";
 import type { CourseCode } from "@/data/types";
+import { semesterWeek, isoWeek } from "@/lib/time";
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 function cv(code: string) { return `var(--course-${code.toLowerCase()})`; }
@@ -321,7 +322,7 @@ export function ZineDashboard() {
           </div>
           {semesterLabel && <div className="z-meta">{semesterLabel.toUpperCase()}</div>}
         </div>
-        <ZineWeek slots={data.slots} monday={monday} now={now} />
+        <ZineWeek slots={data.slots} monday={monday} now={now} semesterStart={settings.data?.semester_start} />
       </section>
 
       {/* SECTION 03 — THE COURSES */}
@@ -399,15 +400,16 @@ export function ZineDashboard() {
 }
 
 function ZineWeek({
-  slots, monday, now,
+  slots, monday, now, semesterStart,
 }: {
   slots: { id: string; weekday: number; start_time: string; end_time: string; kind: string; room?: string; course_code: string }[];
   monday: Date;
   now: Date;
+  semesterStart?: string | null;
 }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
-  const wkLabel = i18n.language === "de" ? "KW" : "WK";
+  const wkLabel = t("zine.wk");
   const hours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
   const pxh = 48;
   const sH = 8;
@@ -422,7 +424,7 @@ function ZineWeek({
     todayIdx >= 1 && todayIdx <= 5 &&
     now.getHours() >= sH && now.getHours() < sH + hours.length;
 
-  const cw = isoWeek(monday);
+  const cw = semesterWeek(now, semesterStart) ?? isoWeek(monday);
 
   const days = [1, 2, 3, 4, 5].map((i) => {
     const d = new Date(monday);
@@ -582,10 +584,3 @@ function ZineTasks({
   );
 }
 
-function isoWeek(d: Date): number {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}

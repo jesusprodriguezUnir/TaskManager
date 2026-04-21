@@ -12,7 +12,7 @@ import {
   useCompleteTask,
   useReopenTask,
 } from "@/lib/queries";
-import { relative } from "@/lib/time";
+import { relative, semesterWeek, isoWeek } from "@/lib/time";
 import type { CourseCode } from "@/data/types";
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
@@ -371,6 +371,7 @@ export function TerminalDashboard() {
           slots={data.slots}
           monday={monday}
           now={now}
+          semesterStart={settings.data?.semester_start}
         />
 
         {/* COURSES */}
@@ -445,12 +446,14 @@ function TerminalWeekGrid({
   slots,
   monday,
   now,
+  semesterStart,
 }: {
   slots: { id: string; weekday: number; start_time: string; end_time: string; kind: string; room?: string; course_code: string }[];
   monday: Date;
   now: Date;
+  semesterStart?: string | null;
 }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
   const hours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
   const pxh = 44;
@@ -476,13 +479,13 @@ function TerminalWeekGrid({
     };
   });
 
-  const cw = isoWeek(monday);
+  const cw = semesterWeek(now, semesterStart) ?? isoWeek(monday);
 
   return (
     <div className="tm-sched-card">
       <div className="tm-sched">
         <div className="tm-sh tm-corner">
-          <div className="tm-dow tm-muted">{i18n.language === "de" ? "KW" : "CW"}{pad(cw)}</div>
+          <div className="tm-dow tm-muted">{t("terminal.wk")} {pad(cw)}</div>
           <div className="tm-d-n">{monday.toLocaleDateString(localeCode, { month: "short" }).toUpperCase().replace(/\./g, "")}</div>
         </div>
         {days.map((day) => (
@@ -679,10 +682,3 @@ function TerminalTasks({
   );
 }
 
-function isoWeek(d: Date): number {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}
