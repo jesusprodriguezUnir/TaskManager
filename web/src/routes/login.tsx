@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { KeyRound, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useLogin, useSession } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
 
 export default function Login() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const session = useSession();
@@ -32,11 +34,11 @@ export default function Login() {
       }
     } catch (e) {
       if (e instanceof ApiError) {
-        if (e.status === 429) setErr("Too many attempts. Try again in a few minutes.");
-        else if (e.status === 401) setErr("Wrong password.");
+        if (e.status === 429) setErr(t("login.tooMany", "Too many attempts. Try again in a few minutes."));
+        else if (e.status === 401) setErr(t("login.wrong"));
         else setErr(e.message);
       } else {
-        setErr("Something went wrong.");
+        setErr(t("common.failed"));
       }
     }
   }
@@ -45,18 +47,21 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-bg">
       <div className="w-full max-w-sm flex flex-col items-center">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Study dashboard</h1>
-          <p className="text-xs text-muted mt-1.5">Sommersemester 2026</p>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+            {t("login.brand", "Study dashboard")}
+          </h1>
         </div>
 
         <div className="w-full card p-6 md:p-7 flex flex-col gap-5 shadow-xl shadow-black/20">
           <div>
-            <h2 className="text-base font-semibold">Welcome back</h2>
-            <p className="text-xs text-muted mt-1">Enter your password to continue.</p>
+            <h2 className="text-base font-semibold">{t("login.title")}</h2>
+            <p className="text-xs text-muted mt-1">
+              {t("login.intro", "Enter your password to continue.")}
+            </p>
           </div>
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted">Password</span>
+              <span className="text-xs font-medium text-muted">{t("login.password")}</span>
               <div className="relative">
                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
                 <input
@@ -86,10 +91,10 @@ export default function Login() {
             >
               {login.isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Signing in…
+                  <Loader2 className="h-4 w-4 animate-spin" /> {t("login.signingIn", "Signing in…")}
                 </>
               ) : (
-                "Sign in"
+                t("login.submit")
               )}
             </button>
           </form>

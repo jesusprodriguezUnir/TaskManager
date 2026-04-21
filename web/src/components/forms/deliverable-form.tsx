@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Field } from "@/components/ui/input";
@@ -50,6 +51,7 @@ export function DeliverableForm({
   defaultCourse,
   courses,
 }: Props) {
+  const { t } = useTranslation();
   const editing = Boolean(deliverable);
   const [name, setName] = useState("");
   const [courseCode, setCourseCode] = useState<string>("");
@@ -99,26 +101,26 @@ export function DeliverableForm({
     try {
       if (editing && deliverable) {
         await update.mutateAsync({ id: deliverable.id, patch: payload });
-        toast.success("Deliverable updated");
+        toast.success(t("forms.deliverable.updated"));
       } else {
         await create.mutateAsync(payload);
-        toast.success("Deliverable created");
+        toast.success(t("forms.deliverable.created"));
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message || "Failed");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
   async function onDelete() {
     if (!deliverable) return;
-    if (!confirm("Delete this deliverable?")) return;
+    if (!confirm(t("forms.deliverable.confirmDelete"))) return;
     try {
       await del.mutateAsync(deliverable.id);
-      toast.success("Deliverable deleted");
+      toast.success(t("forms.deliverable.deleted"));
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message || "Failed");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
@@ -126,16 +128,16 @@ export function DeliverableForm({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent title={editing ? "Edit deliverable" : "New deliverable"}>
+      <SheetContent title={editing ? t("forms.deliverable.titleEdit") : t("forms.deliverable.titleAdd")}>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <Field label="Name">
+          <Field label={t("forms.deliverable.name")}>
             <Input value={name} onChange={(e) => setName(e.target.value)} required />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Course">
+            <Field label={t("forms.deliverable.course")}>
               <Select value={courseCode} onValueChange={setCourseCode}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select" />
+                  <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
                   {courses.map((c) => (
@@ -146,30 +148,30 @@ export function DeliverableForm({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Kind">
+            <Field label={t("forms.deliverable.kind")}>
               <Select value={kind || "__none__"} onValueChange={(v) => setKind(v === "__none__" ? "" : (v as DeliverableKind))}>
                 <SelectTrigger>
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">—</SelectItem>
-                  <SelectItem value="submission">Submission</SelectItem>
-                  <SelectItem value="project">Project</SelectItem>
-                  <SelectItem value="lab">Lab</SelectItem>
-                  <SelectItem value="block">Block / admin</SelectItem>
+                  <SelectItem value="submission">{t("forms.deliverable.kindSubmission")}</SelectItem>
+                  <SelectItem value="project">{t("forms.deliverable.kindProject")}</SelectItem>
+                  <SelectItem value="lab">{t("forms.deliverable.kindLab")}</SelectItem>
+                  <SelectItem value="block">{t("forms.deliverable.kindBlock")}</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Available at">
+            <Field label={t("forms.deliverable.submittedAt")}>
               <Input
                 type="datetime-local"
                 value={availableAt}
                 onChange={(e) => setAvailableAt(e.target.value)}
               />
             </Field>
-            <Field label="Due at">
+            <Field label={t("forms.deliverable.dueAt")}>
               <Input
                 type="datetime-local"
                 required
@@ -178,48 +180,48 @@ export function DeliverableForm({
               />
             </Field>
           </div>
-          <Field label="Status">
+          <Field label={t("forms.deliverable.status")}>
             <Select value={status} onValueChange={(v) => setStatus(v as DeliverableStatus)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in_progress">In progress</SelectItem>
-                <SelectItem value="submitted">Submitted</SelectItem>
-                <SelectItem value="graded">Graded</SelectItem>
-                <SelectItem value="skipped">Skipped</SelectItem>
+                <SelectItem value="open">{t("kinds.status.open")}</SelectItem>
+                <SelectItem value="in_progress">{t("kinds.status.in_progress")}</SelectItem>
+                <SelectItem value="submitted">{t("kinds.status.submitted")}</SelectItem>
+                <SelectItem value="graded">{t("kinds.status.done", "Graded")}</SelectItem>
+                <SelectItem value="skipped">{t("kinds.status.skipped")}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Local path">
+          <Field label={t("forms.deliverable.localPath", "Local path")}>
             <Input value={localPath} onChange={(e) => setLocalPath(e.target.value)} />
           </Field>
-          <Field label="External URL">
+          <Field label={t("forms.deliverable.externalUrl", "External URL")}>
             <Input value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} />
           </Field>
-          <Field label="Weight info">
+          <Field label={t("forms.deliverable.weight")}>
             <Input value={weightInfo} onChange={(e) => setWeightInfo(e.target.value)} />
           </Field>
-          <Field label="Notes">
+          <Field label={t("forms.deliverable.notes")}>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
 
           <div className="flex items-center justify-between gap-2 pt-2">
             {editing ? (
               <Button type="button" variant="danger" size="md" onClick={onDelete}>
-                <Trash2 className="h-4 w-4" /> Delete
+                <Trash2 className="h-4 w-4" /> {t("common.delete")}
               </Button>
             ) : (
               <span />
             )}
             <div className="flex gap-2">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={pending || !name.trim() || !courseCode || !dueAt}>
                 {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editing ? "Save" : "Create"}
+                {editing ? t("common.save") : t("common.create")}
               </Button>
             </div>
           </div>

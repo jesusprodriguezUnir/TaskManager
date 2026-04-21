@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Field } from "@/components/ui/input";
@@ -23,6 +24,7 @@ type Props = {
 };
 
 export function StudyTopicForm({ open, onOpenChange, topic, courseCode, lectures }: Props) {
+  const { t } = useTranslation();
   const editing = Boolean(topic);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -70,26 +72,26 @@ export function StudyTopicForm({ open, onOpenChange, topic, courseCode, lectures
     try {
       if (editing && topic) {
         await update.mutateAsync({ id: topic.id, patch: payload });
-        toast.success("Topic updated");
+        toast.success(t("forms.studyTopic.updated"));
       } else {
         await create.mutateAsync(payload as never);
-        toast.success("Topic created");
+        toast.success(t("forms.studyTopic.created"));
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message || "Failed");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
   async function onDelete() {
     if (!topic) return;
-    if (!confirm("Delete this topic?")) return;
+    if (!confirm(t("forms.studyTopic.confirmDelete"))) return;
     try {
       await del.mutateAsync(topic.id);
-      toast.success("Topic deleted");
+      toast.success(t("forms.studyTopic.deleted"));
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message || "Failed");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
@@ -98,13 +100,13 @@ export function StudyTopicForm({ open, onOpenChange, topic, courseCode, lectures
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent title={editing ? "Edit topic" : "New topic"}>
+      <SheetContent title={editing ? t("forms.studyTopic.titleEdit") : t("forms.studyTopic.titleAdd")}>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <Field label="Name">
+          <Field label={t("forms.studyTopic.name")}>
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus required />
           </Field>
 
-          <Field label="Description" hint="What this topic is about — definitions, examples, key statements.">
+          <Field label={t("forms.studyTopic.description")}>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -113,49 +115,49 @@ export function StudyTopicForm({ open, onOpenChange, topic, courseCode, lectures
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Chapter" hint="e.g. 1.2">
+            <Field label={t("forms.studyTopic.chapter")}>
               <Input value={chapter} onChange={(e) => setChapter(e.target.value)} />
             </Field>
-            <Field label="Kind">
+            <Field label={t("forms.studyTopic.kind")}>
               <Select value={kind || "__none__"} onValueChange={(v) => setKind(v === "__none__" ? "" : (v as StudyTopicKind))}>
                 <SelectTrigger>
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">—</SelectItem>
-                  <SelectItem value="lecture">Lecture</SelectItem>
-                  <SelectItem value="exercise">Exercise</SelectItem>
-                  <SelectItem value="reading">Reading</SelectItem>
+                  <SelectItem value="lecture">{t("kinds.slot.lecture")}</SelectItem>
+                  <SelectItem value="exercise">{t("kinds.slot.exercise")}</SelectItem>
+                  <SelectItem value="reading">{t("forms.studyTopic.kindReading", "Reading")}</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Covered on" hint="Leave empty = upcoming">
+            <Field label={t("forms.studyTopic.coveredOn", "Covered on")}>
               <Input
                 type="date"
                 value={coveredOn}
                 onChange={(e) => setCoveredOn(e.target.value)}
               />
             </Field>
-            <Field label="Status">
+            <Field label={t("forms.studyTopic.status")}>
               <Select value={status} onValueChange={(v) => setStatus(v as StudyTopicStatus)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="not_started">Not started</SelectItem>
-                  <SelectItem value="in_progress">In progress</SelectItem>
-                  <SelectItem value="studied">Studied</SelectItem>
-                  <SelectItem value="mastered">Mastered</SelectItem>
-                  <SelectItem value="struggling">Struggling</SelectItem>
+                  <SelectItem value="not_started">{t("kinds.topicStatus.not_started", "Not started")}</SelectItem>
+                  <SelectItem value="in_progress">{t("kinds.status.in_progress")}</SelectItem>
+                  <SelectItem value="studied">{t("kinds.topicStatus.studied", "Studied")}</SelectItem>
+                  <SelectItem value="mastered">{t("kinds.topicStatus.mastered", "Mastered")}</SelectItem>
+                  <SelectItem value="struggling">{t("kinds.topicStatus.struggling", "Struggling")}</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
           </div>
 
-          <Field label="Lecture" hint="Optional — link to a specific lecture.">
+          <Field label={t("forms.studyTopic.lecture")}>
             <Select
               value={lectureId || "__none__"}
               onValueChange={(v) => setLectureId(v === "__none__" ? "" : v)}
@@ -164,10 +166,10 @@ export function StudyTopicForm({ open, onOpenChange, topic, courseCode, lectures
                 <SelectValue placeholder="—" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">— none —</SelectItem>
+                <SelectItem value="__none__">— {t("forms.studyTopic.lectureNone").toLowerCase()} —</SelectItem>
                 {courseLectures.map((l) => (
                   <SelectItem key={l.id} value={l.id}>
-                    #{l.number ?? "?"} · {l.held_on ?? "no date"}
+                    #{l.number ?? "?"} · {l.held_on ?? "—"}
                     {l.title ? ` · ${l.title}` : ""}
                   </SelectItem>
                 ))}
@@ -176,7 +178,7 @@ export function StudyTopicForm({ open, onOpenChange, topic, courseCode, lectures
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Confidence" hint="0–5 (optional)">
+            <Field label={t("forms.studyTopic.confidence")}>
               <Input
                 type="number"
                 min="0"
@@ -188,25 +190,25 @@ export function StudyTopicForm({ open, onOpenChange, topic, courseCode, lectures
             <div />
           </div>
 
-          <Field label="Personal notes" hint="Your own scribbles — questions, confusions, reminders.">
+          <Field label={t("forms.studyTopic.notes")}>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
 
           <div className="flex items-center justify-between gap-2 pt-2">
             {editing ? (
               <Button type="button" variant="danger" size="md" onClick={onDelete}>
-                <Trash2 className="h-4 w-4" /> Delete
+                <Trash2 className="h-4 w-4" /> {t("common.delete")}
               </Button>
             ) : (
               <span />
             )}
             <div className="flex gap-2">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={pending || !name.trim()}>
                 {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editing ? "Save" : "Create"}
+                {editing ? t("common.save") : t("common.create")}
               </Button>
             </div>
           </div>

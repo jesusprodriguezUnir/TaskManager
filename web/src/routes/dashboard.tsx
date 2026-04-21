@@ -16,13 +16,30 @@ import { WeeklyGrid } from "@/components/dashboard/weekly-grid";
 import { DeadlinesList } from "@/components/dashboard/deadlines-list";
 import { CourseCard } from "@/components/dashboard/course-card";
 import { TaskInbox } from "@/components/dashboard/task-inbox";
-import { useDashboard } from "@/lib/queries";
+import { useAppSettings, useDashboard } from "@/lib/queries";
 import { fmtBerlin, relative } from "@/lib/time";
+import { useTranslation } from "react-i18next";
 import type { CourseCode } from "@/data/types";
+import { normalizeTheme } from "@/lib/themes";
+import { TerminalDashboard } from "./dashboard-terminal";
+import { ZineDashboard } from "./dashboard-zine";
+import { LibraryDashboard } from "./dashboard-library";
+import { SwissDashboard } from "./dashboard-swiss";
 
 type DashboardSummaryTopic = { course_code: string; status: string };
 
 export default function Dashboard() {
+  const settings = useAppSettings();
+  const theme = normalizeTheme(settings.data?.theme);
+  if (theme === "terminal") return <TerminalDashboard />;
+  if (theme === "zine") return <ZineDashboard />;
+  if (theme === "library") return <LibraryDashboard />;
+  if (theme === "swiss") return <SwissDashboard />;
+  return <EditorialDashboard />;
+}
+
+function EditorialDashboard() {
+  const { t } = useTranslation();
   const { data, isPending, error } = useDashboard();
 
   if (isPending) {
@@ -36,7 +53,7 @@ export default function Dashboard() {
   if (error || !data) {
     return (
       <div className="px-6 md:px-0 py-12 text-center">
-        <p className="text-sm text-critical">Couldn't load dashboard.</p>
+        <p className="text-sm text-critical">{t("dashboard.loadFailed")}</p>
         <p className="text-xs text-muted mt-1">{(error as Error | null)?.message}</p>
       </div>
     );
@@ -46,10 +63,13 @@ export default function Dashboard() {
 
   if (data.courses.length === 0) {
     return (
-      <div className="px-4 md:px-0 max-w-[1200px] mx-auto w-full">
-        <Greeting now={now} subline="Let's set things up." />
-        <EmptyDashboard />
-      </div>
+      <>
+        <DashboardTopStrip now={now} />
+        <div className="px-4 md:px-0 max-w-[1200px] mx-auto w-full">
+          <Greeting now={now} subline="Let's set things up." />
+          <EmptyDashboard />
+        </div>
+      </>
     );
   }
 
@@ -94,10 +114,19 @@ export default function Dashboard() {
 
   const eventsThisWeek = data.slots.filter((s) => s.weekday >= 1 && s.weekday <= 5).length;
 
+  const nextUpBehind = nextEvent
+    ? behindCourses.find((b) => b.course_code === nextEvent.code)
+    : undefined;
+  const nextUpUnstudied = nextUpBehind?.topics.length ?? 0;
   const subline =
-    behindCount > 0
-      ? `${totalBehindTopics} topics unstudied before the next lecture on each.`
-      : "Everything caught up — go build something.";
+    nextUpUnstudied > 0
+      ? t(
+          nextUpUnstudied === 1 ? "dashboard.falling_behind_one" : "dashboard.falling_behind_other",
+          { count: nextUpUnstudied, code: nextEvent!.code }
+        )
+      : behindCount === 0
+      ? t("dashboard.all_caught_up")
+      : undefined;
 
   // Next-deadline tone
   const nextDueDays = nextDue
@@ -113,7 +142,7 @@ export default function Dashboard() {
   const nextDueLabel = nextDue ? relative(nextDue.due_at, now).label.replace("in ", "") : "—";
   const nextDueHint = nextDue
     ? `${nextDue.course_code} · ${nextDue.name}`
-    : "No open deliverables";
+    : t("dashboard.tile.noOpenDeliverables");
 
   const taskUnit =
     tasksOpen.length === 0
@@ -128,8 +157,10 @@ export default function Dashboard() {
     .join(" · ");
 
   return (
-    <div className="px-4 md:px-0 max-w-[1200px] mx-auto w-full">
-      <Greeting now={now} nextUp={nextEvent ?? null} subline={subline} />
+    <>
+      <DashboardTopStrip now={now} />
+      <div className="px-4 md:px-0 max-w-[1200px] mx-auto w-full">
+        <Greeting now={now} nextUp={nextEvent ?? null} subline={subline} />
 
       <FallBehindBanner
         items={data.fall_behind.map((f) => ({
@@ -143,49 +174,57 @@ export default function Dashboard() {
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
         <MetricTile
-          label="Next deadline"
+          label={t("dashboard.tile.nextDeadline")}
           value={nextDueDays === null ? "—" : nextDueLabel}
           hint={nextDueHint}
           icon={<Clock className="h-3.5 w-3.5" />}
           tone={nextDueTone as "default" | "warn" | "critical"}
         />
         <MetricTile
-          label="Tasks this week"
+          label={t("dashboard.tile.tasksThisWeek")}
           value={tasksThisWeek}
           unit={taskUnit || undefined}
           hint={
             tasksOpen.length === 0
-              ? "All clear"
-              : `${tasksUrgent} urgent · ${tasksHigh} high`
+              ? t("dashboard.tile.allClear")
+              : `${t("dashboard.tile.urgent", { n: tasksUrgent })} · ${t("dashboard.tile.high", { n: tasksHigh })}`
           }
           icon={<ListChecks className="h-3.5 w-3.5" />}
           tone={tasksUrgent > 0 ? "critical" : tasksThisWeek > 3 ? "warn" : "default"}
         />
         <MetricTile
-          label="Avg. progress"
+          label={t("dashboard.tile.avgProgress")}
           value={avgProgress}
           unit="%"
-          hint={`across ${data.courses.length} courses · Σ ${totalEcts} ECTS`}
+          hint={
+            t(
+              data.courses.length === 1 ? "dashboard.tile.acrossCourses" : "dashboard.tile.acrossCoursesPlural",
+              { count: data.courses.length }
+            ) + ` · Σ ${totalEcts} ECTS`
+          }
           icon={<TrendingUp className="h-3.5 w-3.5" />}
           tone={avgProgress < 25 ? "warn" : avgProgress >= 70 ? "ok" : "default"}
         />
         <MetricTile
-          label="Behind"
+          label={t("dashboard.tile.behind")}
           value={behindCount === 0 ? "✓" : behindCount}
           unit={
             behindCount === 0
-              ? "on track"
-              : `course${behindCount === 1 ? "" : "s"} · ${totalBehindTopics} topics`
+              ? t("dashboard.tile.onTrack")
+              : `${totalBehindTopics}`
           }
-          hint={behindCount === 0 ? "all caught up" : behindBreakdown}
+          hint={behindCount === 0 ? t("dashboard.tile.allCaughtUp") : behindBreakdown}
           icon={<Flame className="h-3.5 w-3.5" />}
           tone={behindCount === 0 ? "ok" : hasCritical ? "critical" : "warn"}
         />
       </section>
 
       <SectionHeader
-        title="This week"
-        meta={`${fmtBerlin(monday, "EEE d MMM")} – ${fmtBerlin(friday, "EEE d MMM")} · ${eventsThisWeek} events`}
+        title={t("dashboard.section.thisWeek")}
+        meta={`${fmtBerlin(monday, "EEE d MMM")} – ${fmtBerlin(friday, "EEE d MMM")} · ${t(
+          eventsThisWeek === 1 ? "dashboard.section.eventsMeta" : "dashboard.section.eventsMetaPlural",
+          { count: eventsThisWeek }
+        )}`}
       />
       <WeeklyGrid
         slots={data.slots}
@@ -194,7 +233,7 @@ export default function Dashboard() {
         now={now}
       />
 
-      <SectionHeader title="Courses" meta={`${data.courses.length} · SoSe 2026`} />
+      <SectionHeader title={t("dashboard.section.courses")} meta={`${data.courses.length}`} />
       <section
         className="grid gap-2.5"
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" } as CSSProperties}
@@ -219,25 +258,76 @@ export default function Dashboard() {
         })}
       </section>
 
-      <SectionHeader title="What's next" meta="Deadlines · Tasks" />
+      <SectionHeader title={t("dashboard.section.whatsNext")} meta={`${t("nav.deadlines")} · ${t("nav.tasks")}`} />
       <div className="grid gap-3 lg:[grid-template-columns:1.15fr_1fr] items-start">
         <div className="card overflow-hidden">
           <PanelHeader
-            title="Upcoming deadlines"
-            meta={`${openDeliverables.length} · next 3 weeks`}
+            title={t("dashboard.section.upcomingDeadlines")}
+            meta={`${openDeliverables.length} · ${t("dashboard.section.next3Weeks")}`}
           />
           <DeadlinesList deliverables={data.deliverables} />
         </div>
         <div className="card overflow-hidden">
           <PanelHeader
-            title="Task inbox"
-            meta={`${tasksOpen.length} open`}
+            title={t("dashboard.section.taskInbox")}
+            meta={t("dashboard.section.openCount", { count: tasksOpen.length })}
           />
           <TaskInbox tasks={data.tasks} courses={data.courses} />
         </div>
       </div>
+      </div>
+    </>
+  );
+}
+
+function DashboardTopStrip({ now }: { now: Date }) {
+  const settings = useAppSettings();
+  const semesterLabel = settings.data?.semester_label?.trim() || null;
+  const semesterWeek = computeSemesterWeek(now, settings.data?.semester_start);
+  const wd = now.toLocaleDateString("en", { weekday: "short" });
+  const dm = `${now.getDate()} ${now.toLocaleDateString("en", { month: "short" })}`;
+
+  const items: { key: string; node: React.ReactNode }[] = [
+    { key: "wd", node: <span className="text-fg font-medium">{wd}</span> },
+    { key: "dm", node: <span>{dm}</span> },
+  ];
+  if (semesterLabel) {
+    items.push({ key: "sem", node: <span>{semesterLabel}</span> });
+  }
+  if (semesterWeek !== null) {
+    items.push({
+      key: "week",
+      node: <span>Week {String(semesterWeek).padStart(2, "0")}</span>,
+    });
+  }
+
+  return (
+    <div className="md:hidden border-b border-hairline bg-bg/85 backdrop-blur-sm sticky top-0 z-20">
+      <div
+        className="px-4 flex items-center justify-center gap-2 font-mono text-[11px] text-muted tracking-[0.04em]"
+        style={{
+          paddingTop: "calc(env(safe-area-inset-top) + 0.5rem)",
+          paddingBottom: "0.5rem",
+        }}
+      >
+        {items.map((it, i) => (
+          <span key={it.key} className="flex items-center gap-2 min-w-0">
+            {i > 0 && <span className="text-subtle">·</span>}
+            <span className="truncate">{it.node}</span>
+          </span>
+        ))}
+      </div>
     </div>
   );
+}
+
+function computeSemesterWeek(now: Date, startIso: string | null | undefined): number | null {
+  if (!startIso) return null;
+  const start = new Date(startIso + "T00:00:00");
+  if (Number.isNaN(start.getTime())) return null;
+  const ms = now.getTime() - start.getTime();
+  if (ms < 0) return null; // pre-start: don't clutter the strip
+  return Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) + 1;
 }
 
 function SectionHeader({ title, meta }: { title: string; meta?: string }) {

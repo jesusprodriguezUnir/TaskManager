@@ -81,6 +81,7 @@ class AppSettings(BaseModel):
     semester_end: Optional[date] = None
     timezone: str = "UTC"
     locale: str = "en-US"
+    theme: Optional[str] = "editorial"
 
 
 class AppSettingsPatch(BaseModel):
@@ -92,6 +93,7 @@ class AppSettingsPatch(BaseModel):
     semester_end: Optional[date] = None
     timezone: Optional[str] = None
     locale: Optional[str] = None
+    theme: Optional[str] = None
 
 
 # ---------- Course ----------

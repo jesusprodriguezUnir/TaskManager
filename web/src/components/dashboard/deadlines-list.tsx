@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import type { Deliverable, CourseCode } from "@/data/types";
 import { courseAccentVar } from "@/lib/theme";
 import { fmtBerlin, fmtTime, relative } from "@/lib/time";
@@ -11,13 +12,14 @@ const severityColor: Record<string, string> = {
 };
 
 export function DeadlinesList({ deliverables }: { deliverables: Deliverable[] }) {
+  const { t } = useTranslation();
   const upcoming = deliverables
     .filter((d) => d.status === "open" || d.status === "in_progress")
     .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime())
     .slice(0, 8);
 
   if (upcoming.length === 0) {
-    return <p className="text-sm text-muted px-4 py-6">Nothing due.</p>;
+    return <p className="text-sm text-muted px-4 py-6">{t("dashboard.nothingDue")}</p>;
   }
 
   return (

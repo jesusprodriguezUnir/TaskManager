@@ -91,5 +91,6 @@ export const api = {
     apiFetch<T>(path, { method: "POST", body }),
   patch: <T = unknown>(path: string, body?: unknown) =>
     apiFetch<T>(path, { method: "PATCH", body }),
-  del: <T = unknown>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
+  del: <T = unknown>(path: string, query?: RequestOptions["query"]) =>
+    apiFetch<T>(path, { method: "DELETE", query }),
 };

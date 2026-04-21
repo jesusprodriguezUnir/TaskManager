@@ -41,20 +41,25 @@ export function WeeklyGrid({
   const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
   const totalHeight = (END_HOUR - START_HOUR) * PX_PER_HOUR;
 
-  const nowTop = toTopPx(
-    `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-  );
+  const nowMinutes = Number.isFinite(now.getTime())
+    ? now.getHours() * 60 + now.getMinutes()
+    : -1;
+  const showNowLine =
+    nowMinutes >= START_HOUR * 60 && nowMinutes < END_HOUR * 60;
+  const nowTop = showNowLine
+    ? ((nowMinutes - START_HOUR * 60) / 60) * PX_PER_HOUR
+    : 0;
   const nowTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const showNowLine = now.getHours() >= START_HOUR && now.getHours() < END_HOUR;
 
   const cw = isoWeek(monday);
 
   return (
     <div className="card overflow-hidden">
-      {/* Desktop / tablet grid */}
+      {/* Same grid on all viewports — scrolls horizontally on narrow screens. */}
+      <div className="overflow-x-auto">
       <div
-        className="hidden md:grid relative"
-        style={{ gridTemplateColumns: `44px repeat(5, 1fr)` }}
+        className="grid relative"
+        style={{ gridTemplateColumns: `44px repeat(5, minmax(130px, 1fr))`, minWidth: 700 }}
       >
         {/* Corner */}
         <div className="flex flex-col gap-1 px-3 pt-3.5 pb-3 border-b border-border border-r border-hairline bg-surface-2">
@@ -159,9 +164,7 @@ export function WeeklyGrid({
           );
         })}
       </div>
-
-      {/* Mobile — horizontal day selector + stacked list */}
-      <MobileWeekly slots={slots} todayWeekday={todayWeekday} monday={monday} />
+      </div>
     </div>
   );
 }
@@ -193,83 +196,6 @@ function LectureBlock({ slot }: { slot: Slot }) {
           {slot.room || "—"}
         </div>
       </div>
-    </div>
-  );
-}
-
-function MobileWeekly({
-  slots,
-  todayWeekday,
-  monday,
-}: {
-  slots: Slot[];
-  todayWeekday: number;
-  monday: Date;
-}) {
-  return (
-    <div className="md:hidden">
-      {DAY_LABELS.map((d, i) => {
-        const daySlots = slots
-          .filter((s) => s.weekday === d.iso)
-          .sort((a, b) => a.start_time.localeCompare(b.start_time));
-        const isToday = d.iso === todayWeekday;
-        const date = new Date(monday);
-        date.setDate(monday.getDate() + i);
-        return (
-          <div
-            key={d.iso}
-            className="px-4 py-3 border-b border-hairline last:border-b-0"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span
-                className={cn(
-                  "font-serif text-[15px]",
-                  isToday ? "text-fg" : "text-fg-dim"
-                )}
-                style={{ fontVariationSettings: '"opsz" 72, "SOFT" 30' }}
-              >
-                {d.long}
-              </span>
-              <span className="font-mono text-[10.5px] text-muted tracking-[0.04em]">
-                {date.getDate().toString().padStart(2, "0")}{" "}
-                {date.toLocaleString("en", { month: "short" })}
-              </span>
-              {isToday && <span className="ink-dot ml-auto" />}
-            </div>
-            {daySlots.length === 0 ? (
-              <p className="text-[12px] text-muted">—</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5">
-                {daySlots.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex items-center gap-2 rounded-md bg-surface-2 border border-hairline px-2.5 py-1.5 relative overflow-hidden"
-                    style={{ ["--accent" as string]: courseAccentVar(s.course_code as CourseCode) } as CSSProperties}
-                  >
-                    <span
-                      className="absolute left-0 top-0 bottom-0 w-[3px]"
-                      style={{ background: "var(--accent)" }}
-                    />
-                    <span className="font-mono text-[11px] tabular-nums text-muted shrink-0">
-                      {hhmm(s.start_time)}
-                    </span>
-                    <span
-                      className="font-mono text-[10.5px] font-semibold tracking-[0.04em] shrink-0"
-                      style={{ color: "var(--accent)" }}
-                    >
-                      {s.course_code}
-                    </span>
-                    <span className="text-[11px] text-muted capitalize">{s.kind}</span>
-                    <span className="text-[11px] text-fg-dim truncate ml-auto">
-                      {s.room}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }

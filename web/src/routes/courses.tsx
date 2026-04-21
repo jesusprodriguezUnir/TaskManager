@@ -1,22 +1,23 @@
 import { useState } from "react";
 import { Loader2, Plus, BookOpen } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Header } from "@/components/layout/header";
 import { CourseCard } from "@/components/dashboard/course-card";
 import { CourseForm } from "@/components/forms/course-form";
 import { Button } from "@/components/ui/button";
 import { Fab } from "@/components/common/fab";
 import { useDashboard } from "@/lib/queries";
-import type { Course, CourseCode } from "@/data/types";
+import type { CourseCode } from "@/data/types";
 
 export default function Courses() {
+  const { t } = useTranslation();
   const { data, isPending, error } = useDashboard();
   const [createOpen, setCreateOpen] = useState(false);
-  const [editing, setEditing] = useState<Course | null>(null);
 
   if (isPending) {
     return (
       <>
-        <Header title="Courses" />
+        <Header title={t("courses.title")} />
         <div className="px-4 py-12 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted" />
         </div>
@@ -26,8 +27,10 @@ export default function Courses() {
   if (error || !data) {
     return (
       <>
-        <Header title="Courses" />
-        <div className="px-4 py-12 text-center text-sm text-critical">Couldn't load courses.</div>
+        <Header title={t("courses.title")} />
+        <div className="px-4 py-12 text-center text-sm text-critical">
+          {t("dashboard.loadFailed")}
+        </div>
       </>
     );
   }
@@ -45,8 +48,11 @@ export default function Courses() {
   return (
     <>
       <Header
-        title="Courses"
-        subtitle={`${data.courses.length} module${data.courses.length === 1 ? "" : "s"}`}
+        title={t("courses.title")}
+        subtitle={t(
+          data.courses.length === 1 ? "courses.metaModules" : "courses.metaModulesPlural",
+          { count: data.courses.length }
+        )}
       />
       <div className="px-4 md:px-8 py-4 md:py-6 max-w-[1000px] mx-auto w-full">
         {data.courses.length === 0 ? (
@@ -56,31 +62,19 @@ export default function Courses() {
             {data.courses.map((c) => {
               const fb = data.fall_behind.find((f) => f.course_code === c.code);
               return (
-                <div key={c.code} className="relative group">
-                  <CourseCard
-                    course={c}
-                    progress={progressFor(c.code)}
-                    nextLectureAt={fb?.next_lecture_at ? new Date(fb.next_lecture_at) : null}
-                    fallBehind={{
-                      course_code: c.code as CourseCode,
-                      topics: fb?.topics ?? [],
-                      last_covered_on: fb?.last_covered_on ? new Date(fb.last_covered_on) : null,
-                      next_lecture_at: fb?.next_lecture_at ? new Date(fb.next_lecture_at) : null,
-                      severity: fb?.severity ?? "ok",
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setEditing(c);
-                    }}
-                    className="absolute top-2 right-2 text-[10px] font-mono tracking-[0.04em] uppercase text-subtle hover:text-fg px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity bg-surface-2/80 backdrop-blur-sm"
-                  >
-                    Edit
-                  </button>
-                </div>
+                <CourseCard
+                  key={c.code}
+                  course={c}
+                  progress={progressFor(c.code)}
+                  nextLectureAt={fb?.next_lecture_at ? new Date(fb.next_lecture_at) : null}
+                  fallBehind={{
+                    course_code: c.code as CourseCode,
+                    topics: fb?.topics ?? [],
+                    last_covered_on: fb?.last_covered_on ? new Date(fb.last_covered_on) : null,
+                    next_lecture_at: fb?.next_lecture_at ? new Date(fb.next_lecture_at) : null,
+                    severity: fb?.severity ?? "ok",
+                  }}
+                />
               );
             })}
           </div>
@@ -88,19 +82,15 @@ export default function Courses() {
       </div>
 
       <CourseForm open={createOpen} onOpenChange={setCreateOpen} />
-      <CourseForm
-        open={editing !== null}
-        onOpenChange={(o) => !o && setEditing(null)}
-        course={editing}
-      />
       {data.courses.length > 0 && (
-        <Fab onClick={() => setCreateOpen(true)} label="Add course" />
+        <Fab onClick={() => setCreateOpen(true)} label={t("courses.fab")} />
       )}
     </>
   );
 }
 
 function EmptyCourses({ onCreate }: { onCreate: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="card px-8 py-16 flex flex-col items-center gap-4 text-center">
       <div className="w-12 h-12 rounded-full bg-surface-2 grid place-items-center">
@@ -111,16 +101,13 @@ function EmptyCourses({ onCreate }: { onCreate: () => void }) {
           className="font-serif text-[22px] font-normal tracking-[-0.005em]"
           style={{ fontVariationSettings: '"opsz" 72, "SOFT" 30' }}
         >
-          No courses yet.
+          {t("courses.empty.title")}
         </h2>
-        <p className="text-sm text-muted mt-1 max-w-md">
-          Add your first course to get going. Everything else — schedule, lectures, topics,
-          deadlines, tasks — hangs off courses.
-        </p>
+        <p className="text-sm text-muted mt-1 max-w-md">{t("courses.empty.body")}</p>
       </div>
       <Button onClick={onCreate}>
         <Plus className="h-4 w-4 mr-1.5" />
-        Add your first course
+        {t("courses.empty.cta")}
       </Button>
     </div>
   );

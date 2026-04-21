@@ -2,14 +2,20 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Sidebar, BottomNav } from "./sidebar";
-import { useCourses, useSession } from "@/lib/queries";
+import { TerminalSidebar } from "./terminal-sidebar";
+import { ZineSidebar } from "./zine-sidebar";
+import { LibrarySidebar } from "./library-sidebar";
+import { SwissSidebar } from "./swiss-sidebar";
+import { useAppSettings, useCourses, useSession } from "@/lib/queries";
 import { applyCourseColors } from "@/lib/theme";
+import { applyTheme, normalizeTheme } from "@/lib/themes";
 
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const session = useSession();
   const courses = useCourses();
+  const settings = useAppSettings();
 
   useEffect(() => {
     const handler = () =>
@@ -21,6 +27,13 @@ export function AppShell() {
   useEffect(() => {
     applyCourseColors(courses.data);
   }, [courses.data]);
+
+  useEffect(() => {
+    applyTheme(settings.data?.theme);
+  }, [settings.data?.theme]);
+
+  // Language is driven ONLY by the Profile → Language picker (stored in
+  // localStorage). Changing the Date-format picker no longer touches i18n.
 
   if (session.isPending) {
     return (
@@ -34,10 +47,56 @@ export function AppShell() {
     return <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />;
   }
 
+  const theme = normalizeTheme(settings.data?.theme);
+  if (theme === "terminal") {
+    return (
+      <div className="tm-app">
+        <TerminalSidebar />
+        <main className="min-w-0 pb-24 md:pb-0">
+          <Outlet />
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
+  if (theme === "zine") {
+    return (
+      <div className="z-shell">
+        <ZineSidebar />
+        <main className="min-w-0 pb-24 md:pb-0">
+          <Outlet />
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
+  if (theme === "library") {
+    return (
+      <div className="l-shell">
+        <LibrarySidebar />
+        <main className="min-w-0 pb-24 md:pb-0">
+          <Outlet />
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
+  if (theme === "swiss") {
+    return (
+      <div className="s-shell">
+        <SwissSidebar />
+        <main className="min-w-0 pb-24 md:pb-0">
+          <Outlet />
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] flex">
       <Sidebar />
-      <main className="flex-1 min-w-0 pt-5 pb-24 safe-top md:px-7 md:pt-6 md:pb-20">
+      <main className="flex-1 min-w-0 pb-24 md:px-7 md:pt-6 md:pb-20">
         <Outlet />
       </main>
       <BottomNav />

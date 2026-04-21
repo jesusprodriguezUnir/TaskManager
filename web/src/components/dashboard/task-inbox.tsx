@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from "react";
 import { Check, Loader2, Pencil, RotateCcw, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import type { Course, CourseCode, Task } from "@/data/types";
 import { courseAccentVar } from "@/lib/theme";
 import { relative } from "@/lib/time";
@@ -15,46 +16,47 @@ const severityColor: Record<string, string> = {
 };
 
 export function TaskInbox({ tasks, courses }: { tasks: Task[]; courses: Course[] }) {
+  const { t } = useTranslation();
   const complete = useCompleteTask();
   const reopen = useReopenTask();
   const [editing, setEditing] = useState<Task | null>(null);
   const [showDone, setShowDone] = useState(false);
 
   const open = tasks
-    .filter((t) => t.status !== "done" && t.status !== "skipped")
+    .filter((task) => task.status !== "done" && task.status !== "skipped")
     .sort(byDue);
-  const done = tasks.filter((t) => t.status === "done").sort(byCompletedDesc);
+  const done = tasks.filter((task) => task.status === "done").sort(byCompletedDesc);
 
-  async function onComplete(t: Task) {
+  async function onComplete(task: Task) {
     try {
-      await complete.mutateAsync(t.id);
-      toast.success(`Completed: ${t.title}`, {
+      await complete.mutateAsync(task.id);
+      toast.success(t("dashboard.completedToast", { title: task.title }), {
         action: {
-          label: "Undo",
+          label: t("common.undo"),
           onClick: async () => {
-            await reopen.mutateAsync(t.id);
-            toast.success("Restored");
+            await reopen.mutateAsync(task.id);
+            toast.success(t("common.restored"));
           },
         },
       });
     } catch (e) {
-      toast.error((e as Error).message || "Failed");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
-  async function onReopen(t: Task) {
+  async function onReopen(task: Task) {
     try {
-      await reopen.mutateAsync(t.id);
-      toast.success("Reopened");
+      await reopen.mutateAsync(task.id);
+      toast.success(t("common.reopened"));
     } catch (e) {
-      toast.error((e as Error).message || "Failed");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
   if (open.length === 0 && done.length === 0) {
     return (
       <div className="px-4 py-6">
-        <EmptyState title="Inbox zero" description="No tasks yet." />
+        <EmptyState title={t("dashboard.inboxZero")} description={t("dashboard.noTasksYet")} />
       </div>
     );
   }
@@ -63,19 +65,19 @@ export function TaskInbox({ tasks, courses }: { tasks: Task[]; courses: Course[]
     <>
       {open.length === 0 ? (
         <div className="px-4 py-6">
-          <EmptyState title="Inbox zero" description="All open tasks complete. 🎉" />
+          <EmptyState title={t("dashboard.inboxZero")} description={t("dashboard.allOpenDone")} />
         </div>
       ) : (
         <div>
-          {open.map((t) => {
-            const pending = complete.isPending && complete.variables === t.id;
-            const code = t.course_code as CourseCode | null;
+          {open.map((task) => {
+            const pending = complete.isPending && complete.variables === task.id;
+            const code = task.course_code as CourseCode | null;
             const accent = code ? courseAccentVar(code) : "transparent";
-            const rt = t.due_at ? relative(t.due_at) : null;
+            const rt = task.due_at ? relative(task.due_at) : null;
             const sevColor = rt ? severityColor[rt.severity] : undefined;
             return (
               <div
-                key={t.id}
+                key={task.id}
                 className="grid items-center gap-3 px-4 py-3 border-b border-hairline last:border-b-0 transition-colors hover:bg-surface-2 relative"
                 style={
                   {
@@ -91,9 +93,9 @@ export function TaskInbox({ tasks, courses }: { tasks: Task[]; courses: Course[]
                 />
                 <button
                   type="button"
-                  onClick={() => onComplete(t)}
+                  onClick={() => onComplete(task)}
                   disabled={pending}
-                  aria-label={`Complete: ${t.title}`}
+                  aria-label={t("dashboard.completeAria", { title: task.title })}
                   className={cn(
                     "w-4 h-4 rounded-[4px] border border-border-strong grid place-items-center bg-transparent cursor-pointer",
                     "hover:border-ok transition-colors",
@@ -115,22 +117,22 @@ export function TaskInbox({ tasks, courses }: { tasks: Task[]; courses: Course[]
                   </span>
                 ) : (
                   <span className="font-mono text-[9.5px] tracking-[0.08em] uppercase text-subtle border border-hairline rounded-[5px] px-2 py-[3px]">
-                    Personal
+                    {t("common.personal")}
                   </span>
                 )}
 
                 <button
                   type="button"
-                  onClick={() => setEditing(t)}
+                  onClick={() => setEditing(task)}
                   className="min-w-0 text-left"
                 >
-                  <div className="text-[13px] text-fg truncate leading-[1.3]">{t.title}</div>
-                  {t.priority && t.priority !== "low" && (
+                  <div className="text-[13px] text-fg truncate leading-[1.3]">{task.title}</div>
+                  {task.priority && task.priority !== "low" && (
                     <div
                       className="font-mono text-[10.5px] tracking-[0.06em] uppercase mt-[2px]"
-                      style={{ color: t.priority === "urgent" ? "var(--critical)" : "var(--subtle)" }}
+                      style={{ color: task.priority === "urgent" ? "var(--critical)" : "var(--subtle)" }}
                     >
-                      {t.priority}
+                      {t(`forms.task.priority${task.priority === "urgent" ? "Urgent" : task.priority === "high" ? "High" : task.priority === "med" ? "Med" : "Low"}`, task.priority)}
                     </div>
                   )}
                 </button>
@@ -145,8 +147,8 @@ export function TaskInbox({ tasks, courses }: { tasks: Task[]; courses: Course[]
                 )}
                 <button
                   type="button"
-                  onClick={() => setEditing(t)}
-                  aria-label="Edit"
+                  onClick={() => setEditing(task)}
+                  aria-label={t("common.edit")}
                   className="inline-flex items-center justify-center rounded-md text-muted hover:text-fg hover:bg-surface-2 transition-colors h-7 w-7"
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -167,26 +169,26 @@ export function TaskInbox({ tasks, courses }: { tasks: Task[]; courses: Course[]
             <ChevronDown
               className={cn("h-3.5 w-3.5 transition-transform", !showDone && "-rotate-90")}
             />
-            Completed · {done.length}
+            {t("dashboard.completedCount", { count: done.length })}
           </button>
           {showDone && (
             <ul className="mt-2 flex flex-col divide-y divide-hairline">
-              {done.map((t) => {
-                const pending = reopen.isPending && reopen.variables === t.id;
+              {done.map((task) => {
+                const pending = reopen.isPending && reopen.variables === task.id;
                 return (
                   <li
-                    key={t.id}
+                    key={task.id}
                     className="py-2 flex items-start gap-3 text-sm text-muted"
                   >
                     <Check className="h-4 w-4 text-ok flex-shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1 line-through decoration-subtle">
-                      <span className="text-[13px]">{t.title}</span>
+                      <span className="text-[13px]">{task.title}</span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => onReopen(t)}
+                      onClick={() => onReopen(task)}
                       disabled={pending}
-                      aria-label="Reopen"
+                      aria-label={t("common.reopened")}
                       className="h-7 w-7 rounded-md inline-flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors"
                     >
                       {pending ? (

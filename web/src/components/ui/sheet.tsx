@@ -35,11 +35,14 @@ export const SheetContent = React.forwardRef<
         ref={ref}
         className={cn(
           "fixed z-50 bg-surface text-fg",
-          // Mobile: slide up from bottom, cover most of screen
-          "inset-x-0 bottom-0 max-h-[92vh] overflow-y-auto rounded-t-xl border-t border-border/60",
+          // Mobile: slide up from bottom, cover most of screen.
+          // dvh (dynamic vh) shrinks when the iOS keyboard opens, so the sheet
+          // re-fits to the visible area instead of extending behind the keyboard.
+          // scroll-pb reserves space so focused inputs never land right at the edge.
+          "inset-x-0 bottom-0 max-h-[92dvh] overflow-y-auto rounded-t-xl border-t border-border/60 [scroll-padding-bottom:25dvh]",
           // Desktop: center, max width, rounded everywhere
           "sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md",
-          "sm:rounded-xl sm:border sm:max-h-[85vh]",
+          "sm:rounded-xl sm:border sm:max-h-[85vh] sm:[scroll-padding-bottom:0px]",
           // Enter animations
           "data-[state=open]:animate-in data-[state=open]:duration-200 data-[state=open]:ease-out",
           "data-[state=open]:slide-in-from-bottom data-[state=open]:fade-in-0",

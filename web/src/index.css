@@ -70,6 +70,77 @@
     --font-mono:  "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
     --shadow-1: 0 1px 0 oklch(1 0 0 / 0.02) inset, 0 1px 2px oklch(0 0 0 / 0.4);
+
+    --ink-dot-display: inline-block;
+    --base-font-size: 14px;
+  }
+
+  /* ================================================================
+     Theme variants — selected via data-theme="<id>" on <html>.
+     Strategy: rebind the same tokens the rest of the app already uses,
+     so components keep their markup. Only structural differences
+     (ink-dot display, base font size) are toggled explicitly.
+     ================================================================ */
+
+  /* ── Minimal: single typeface (Inter), no serif headings, no dots. ── */
+  :root[data-theme="minimal"] {
+    /* Slightly cooler neutrals; rebinding serif → sans kills Fraunces */
+    --bg-c:           0.16 0.003 260;
+    --surface-c:      0.20 0.003 260;
+    --surface-2-c:    0.24 0.003 260;
+    --surface-3-c:    0.28 0.003 260;
+    --border-c:       0.32 0.003 260;
+    --border-strong-c:0.40 0.003 260;
+    --hairline-c:     0.40 0.003 260;
+    --fg-c:           0.97 0 0;
+    --fg-dim-c:       0.86 0 0;
+    --muted-c:        0.65 0 0;
+    --subtle-c:       0.50 0 0;
+
+    --font-serif: var(--font-sans);
+    --ink-dot-display: none;
+    --radius: 8px;
+    --radius-sm: 5px;
+    --radius-lg: 10px;
+  }
+
+  /* ── Terminal: mono everywhere, amber on near-black. ── */
+  :root[data-theme="terminal"] {
+    --bg-c:           0.12 0.003 60;
+    --surface-c:      0.15 0.004 60;
+    --surface-2-c:    0.19 0.005 60;
+    --surface-3-c:    0.23 0.005 60;
+    --border-c:       0.30 0.05 85;
+    --border-strong-c:0.42 0.10 85;
+    --hairline-c:     0.38 0.08 85;
+
+    --fg-c:           0.92 0.09 85;   /* amber-leaning foreground */
+    --fg-dim-c:       0.78 0.08 85;
+    --muted-c:        0.60 0.05 85;
+    --subtle-c:       0.45 0.03 85;
+    --ink-c:          0.88 0.14 85;
+
+    --ok-c:           0.82 0.18 150;
+    --warn-c:         0.85 0.17 75;
+    --critical-c:     0.70 0.22 25;
+
+    --font-sans:  "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-serif: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --ink-dot-display: none;
+    --radius: 3px;
+    --radius-sm: 2px;
+    --radius-lg: 4px;
+  }
+
+  /* ── Dense: same palette, smaller type, tighter radii. ── */
+  :root[data-theme="dense"] {
+    --font-serif: var(--font-sans);
+    --ink-dot-display: none;
+    --base-font-size: 12.5px;
+    --radius: 6px;
+    --radius-sm: 4px;
+    --radius-lg: 8px;
   }
 
   html {
@@ -85,7 +156,7 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     min-height: 100dvh;
-    font-size: 14px;
+    font-size: var(--base-font-size, 14px);
     line-height: 1.45;
     letter-spacing: -0.003em;
     overflow-x: hidden;
@@ -112,6 +183,49 @@
 
   .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem); }
   .safe-top    { padding-top: calc(env(safe-area-inset-top) + 0.5rem); }
+
+  /* iOS Safari renders <input type="date|time|datetime-local"> as a native
+     "pill" with its own intrinsic width, ignoring our w-full / padding. Reset
+     that so date inputs look like every other field. */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="week"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    text-align: left;
+    background-color: transparent;
+  }
+
+  /* The inner pill that holds the formatted value */
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value,
+  input[type="datetime-local"]::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.5em;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* The calendar / clock icon — push to the right edge */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    margin-left: auto;
+    padding: 0;
+    opacity: 0.55;
+    cursor: pointer;
+  }
+
+  /* Empty date input — give it a placeholder-like hint instead of "Date" */
+  input[type="date"]:not(:focus):invalid::before {
+    color: var(--subtle);
+  }
 }
 
 @layer components {
@@ -134,9 +248,11 @@
     font-family: var(--font-mono);
   }
 
-  /* === The signature "ink dot" motif — hand-drawn with CSS === */
+  /* === The signature "ink dot" motif — hand-drawn with CSS ===
+     display is a CSS var so non-editorial themes can hide it globally
+     without each callsite needing conditional markup. */
   .ink-dot {
-    display: inline-block;
+    display: var(--ink-dot-display, inline-block);
     width: 9px; height: 9px;
     border-radius: 50%;
     background:

@@ -1,11 +1,13 @@
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import type { CourseCode } from "@/data/types";
 import type { FallBehindItem } from "@/lib/fall-behind";
 import { courseAccentVar } from "@/lib/theme";
 import { fmtDateShort, relative } from "@/lib/time";
 
 export function FallBehindBanner({ items }: { items: FallBehindItem[] }) {
+  const { t } = useTranslation();
   const active = items.filter((i) => i.severity !== "ok");
   if (active.length === 0) return null;
 
@@ -48,19 +50,26 @@ export function FallBehindBanner({ items }: { items: FallBehindItem[] }) {
           }}
         >
           {severity === "critical"
-            ? "Falling behind, and the next lecture is close."
-            : `Falling behind in ${active.length} course${active.length === 1 ? "" : "s"}.`}
+            ? t("fallBehind.titleCritical", "Falling behind, and the next lecture is close.")
+            : t("fallBehind.titleWarn", {
+                defaultValue: "Falling behind in {{count}} courses.",
+                count: active.length,
+              })}
         </h3>
         <p className="text-[13.5px] text-fg-dim">
           <b className="font-mono font-semibold text-fg">{totalTopics}</b>{" "}
-          {totalTopics === 1 ? "topic" : "topics"} unstudied across{" "}
+          {totalTopics === 1 ? t("common.topic") : t("common.topics")} {t("fallBehind.unstudiedAcross", "unstudied across")}{" "}
           <b className="font-medium text-fg">
             {active.map((i) => i.course_code).join(" & ")}
           </b>
           .{" "}
           {critical && critical.next_lecture_at
-            ? `${critical.course_code} lecture ${relative(critical.next_lecture_at).label} — still no prep.`
-            : "Clear them before the next lecture on each."}
+            ? t("fallBehind.criticalHint", {
+                defaultValue: "{{code}} lecture {{rel}} — still no prep.",
+                code: critical.course_code,
+                rel: relative(critical.next_lecture_at).label,
+              })
+            : t("fallBehind.clearThem", "Clear them before the next lecture on each.")}
         </p>
 
         <div className="mt-2.5 grid grid-cols-1 sm:[grid-template-columns:repeat(auto-fit,minmax(240px,1fr))] gap-x-3.5 gap-y-2">
@@ -74,6 +83,7 @@ export function FallBehindBanner({ items }: { items: FallBehindItem[] }) {
 }
 
 function BehindRow({ item }: { item: FallBehindItem }) {
+  const { t } = useTranslation();
   const code = item.course_code as CourseCode;
   return (
     <Link
@@ -91,15 +101,17 @@ function BehindRow({ item }: { item: FallBehindItem }) {
       <span className="text-[12.5px] text-fg-dim whitespace-nowrap">
         <b className="font-mono font-semibold text-fg">{item.topics.length}</b>{" "}
         <span className="text-muted">
-          {item.topics.length === 1 ? "topic" : "topics"}
+          {item.topics.length === 1 ? t("common.topic") : t("common.topics")}
         </span>
       </span>
       <span className="text-[12px] text-muted truncate flex-1 min-w-0">
-        {item.last_covered_on ? `since ${fmtDateShort(item.last_covered_on)}` : "unstudied"}
+        {item.last_covered_on
+          ? t("fallBehind.since", { defaultValue: "since {{date}}", date: fmtDateShort(item.last_covered_on) })
+          : t("fallBehind.unstudiedShort", "unstudied")}
       </span>
       {item.next_lecture_at && (
         <span className="font-mono text-[11.5px] text-muted ml-auto shrink-0">
-          next {relative(item.next_lecture_at).label}
+          {t("fallBehind.nextPrefix", "next")} {relative(item.next_lecture_at).label}
         </span>
       )}
     </Link>

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Field } from "@/components/ui/input";
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export function LectureForm({ open, onOpenChange, lecture, courseCode }: Props) {
+  const { t } = useTranslation();
   const editing = Boolean(lecture);
   const [number, setNumber] = useState("");
   const [heldOn, setHeldOn] = useState("");
@@ -61,14 +63,14 @@ export function LectureForm({ open, onOpenChange, lecture, courseCode }: Props) 
     try {
       if (editing && lecture) {
         await update.mutateAsync({ id: lecture.id, patch: payload });
-        toast.success("Lecture updated");
+        toast.success(t("forms.lecture.updated"));
       } else {
         await create.mutateAsync(payload);
-        toast.success("Lecture created");
+        toast.success(t("forms.lecture.created"));
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message || "Failed");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
@@ -76,10 +78,10 @@ export function LectureForm({ open, onOpenChange, lecture, courseCode }: Props) 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent title={editing ? `Edit lecture` : "New lecture"}>
+      <SheetContent title={editing ? t("forms.lecture.titleEdit") : t("forms.lecture.titleAdd")}>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Number" hint="e.g. 1, 2, 3…">
+            <Field label={t("forms.lecture.number")}>
               <Input
                 type="number"
                 min="1"
@@ -87,7 +89,7 @@ export function LectureForm({ open, onOpenChange, lecture, courseCode }: Props) 
                 onChange={(e) => setNumber(e.target.value)}
               />
             </Field>
-            <Field label="Held on">
+            <Field label={t("forms.lecture.heldOn")}>
               <Input
                 type="date"
                 value={heldOn}
@@ -95,23 +97,23 @@ export function LectureForm({ open, onOpenChange, lecture, courseCode }: Props) 
               />
             </Field>
           </div>
-          <Field label="Kind">
+          <Field label={t("forms.lecture.kind")}>
             <Select value={kind} onValueChange={(v) => setKind(v as SlotKind)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="lecture">Lecture</SelectItem>
-                <SelectItem value="exercise">Exercise</SelectItem>
-                <SelectItem value="tutorial">Tutorial</SelectItem>
-                <SelectItem value="lab">Lab</SelectItem>
+                <SelectItem value="lecture">{t("kinds.slot.lecture")}</SelectItem>
+                <SelectItem value="exercise">{t("kinds.slot.exercise")}</SelectItem>
+                <SelectItem value="tutorial">{t("kinds.slot.tutorial")}</SelectItem>
+                <SelectItem value="lab">{t("kinds.slot.lab")}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Title">
+          <Field label={t("forms.lecture.title")}>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
-          <Field label="Summary">
+          <Field label={t("forms.lecture.summary")}>
             <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} />
           </Field>
           <label className="flex items-center gap-2 text-sm">
@@ -121,19 +123,19 @@ export function LectureForm({ open, onOpenChange, lecture, courseCode }: Props) 
               onChange={(e) => setAttended(e.target.checked)}
               className="h-4 w-4 rounded border-border/60"
             />
-            Attended
+            {t("forms.lecture.attended")}
           </label>
-          <Field label="Notes">
+          <Field label={t("forms.lecture.notes")}>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" type="button" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
               {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {editing ? "Save" : "Create"}
+              {editing ? t("common.save") : t("common.create")}
             </Button>
           </div>
         </form>

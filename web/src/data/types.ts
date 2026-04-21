@@ -10,7 +10,10 @@ export type AppSettings = {
   semester_end: string | null;
   timezone: string;
   locale: string;
+  theme: string | null;
 };
+
+export type ThemeId = "terminal" | "zine" | "library" | "swiss" | "editorial";
 
 export type StatusKind = string;
 

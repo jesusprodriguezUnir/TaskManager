@@ -13,6 +13,7 @@ import {
 import type { Course, Task, TaskPriority } from "@/data/types";
 import { useCreateTask, useDeleteTask, useUpdateTask } from "@/lib/queries";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   open: boolean;
@@ -35,6 +36,7 @@ function fromLocalInput(local: string): string | undefined {
 }
 
 export function TaskForm({ open, onOpenChange, task, defaultCourse, courses }: Props) {
+  const { t } = useTranslation();
   const editing = Boolean(task);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -72,26 +74,26 @@ export function TaskForm({ open, onOpenChange, task, defaultCourse, courses }: P
     try {
       if (editing && task) {
         await updateTask.mutateAsync({ id: task.id, patch: payload });
-        toast.success("Task updated");
+        toast.success(t("forms.task.updated"));
       } else {
         await createTask.mutateAsync(payload);
-        toast.success("Task created");
+        toast.success(t("forms.task.created"));
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message || "Failed to save");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
   async function onDelete() {
     if (!task) return;
-    if (!confirm("Delete this task?")) return;
+    if (!confirm(t("forms.task.confirmDelete"))) return;
     try {
       await deleteTask.mutateAsync(task.id);
-      toast.success("Task deleted");
+      toast.success(t("forms.task.deleted"));
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message || "Failed to delete");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
@@ -99,24 +101,24 @@ export function TaskForm({ open, onOpenChange, task, defaultCourse, courses }: P
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent title={editing ? "Edit task" : "New task"}>
+      <SheetContent title={editing ? t("forms.task.titleEdit") : t("forms.task.titleAdd")}>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <Field label="Title">
+          <Field label={t("forms.task.titleField")}>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
           </Field>
 
-          <Field label="Description (optional)">
+          <Field label={t("forms.task.description")}>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Course">
+            <Field label={t("forms.task.course")}>
               <Select value={courseCode || "__none__"} onValueChange={(v) => setCourseCode(v === "__none__" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
+                  <SelectItem value="__none__">{t("forms.task.courseNone")}</SelectItem>
                   {courses.map((c) => (
                     <SelectItem key={c.code} value={c.code}>
                       {c.code} · {c.short_name ?? c.full_name}
@@ -126,22 +128,22 @@ export function TaskForm({ open, onOpenChange, task, defaultCourse, courses }: P
               </Select>
             </Field>
 
-            <Field label="Priority">
+            <Field label={t("forms.task.priority")}>
               <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="med">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="low">{t("forms.task.priorityLow")}</SelectItem>
+                  <SelectItem value="med">{t("forms.task.priorityMed")}</SelectItem>
+                  <SelectItem value="high">{t("forms.task.priorityHigh")}</SelectItem>
+                  <SelectItem value="urgent">{t("forms.task.priorityUrgent")}</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
           </div>
 
-          <Field label="Due" hint="Local time; leave empty if no hard deadline.">
+          <Field label={t("forms.task.due")} hint={t("forms.task.dueHint")}>
             <Input
               type="datetime-local"
               value={dueAt}
@@ -149,11 +151,11 @@ export function TaskForm({ open, onOpenChange, task, defaultCourse, courses }: P
             />
           </Field>
 
-          <Field label="Tags (comma separated)">
+          <Field label={t("forms.task.tags")}>
             <Input
               value={tags}
               onChange={(e) => setTags(e.target.value)}
-              placeholder="Blatt, admin"
+              placeholder={t("forms.task.tagsPlaceholder")}
             />
           </Field>
 
@@ -161,18 +163,18 @@ export function TaskForm({ open, onOpenChange, task, defaultCourse, courses }: P
             {editing ? (
               <Button type="button" variant="danger" size="md" onClick={onDelete}>
                 <Trash2 className="h-4 w-4" />
-                Delete
+                {t("common.delete")}
               </Button>
             ) : (
               <span />
             )}
             <div className="flex gap-2">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={pending || !title.trim()}>
                 {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editing ? "Save" : "Create"}
+                {editing ? t("common.save") : t("common.create")}
               </Button>
             </div>
           </div>

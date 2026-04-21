@@ -152,6 +152,9 @@ export function useUpdateAppSettings() {
       api.patch<AppSettings>("/api/settings", patch),
     onSuccess: (data) => {
       qc.setQueryData(qk.settings, data);
+      // Force a refetch too — if PostgREST's schema cache lags after a
+      // migration, the PATCH response can miss newly-added columns.
+      qc.invalidateQueries({ queryKey: qk.settings });
     },
   });
 }
@@ -161,6 +164,39 @@ export function useSlots(course_code?: string) {
   return useQuery({
     queryKey: qk.slots(course_code),
     queryFn: () => api.get<Slot[]>("/api/schedule-slots", { course_code }),
+  });
+}
+
+export type SlotInput = Partial<Omit<Slot, "id">> & {
+  course_code: Slot["course_code"];
+  kind: Slot["kind"];
+  weekday: Slot["weekday"];
+  start_time: string;
+  end_time: string;
+};
+
+export function useCreateSlot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SlotInput) => api.post<Slot>("/api/schedule-slots", body),
+    onSuccess: () => invalidateAll(qc),
+  });
+}
+
+export function useUpdateSlot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Slot> }) =>
+      api.patch<Slot>(`/api/schedule-slots/${id}`, patch),
+    onSuccess: () => invalidateAll(qc),
+  });
+}
+
+export function useDeleteSlot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del(`/api/schedule-slots/${id}`),
+    onSuccess: () => invalidateAll(qc),
   });
 }
 
@@ -458,6 +494,46 @@ export function useUploadFile() {
     },
     onSuccess: () => {
       // any list at any prefix should refresh
+      qc.invalidateQueries({ queryKey: ["files", "list"] });
+    },
+  });
+}
+
+export function useDeleteEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ path, kind }: { path: string; kind: "file" | "folder" }) =>
+      api.del<{ deleted: string[] }>("/api/files", { path, kind }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files", "list"] });
+    },
+  });
+}
+
+export function useCreateFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ path }: { path: string }) =>
+      api.post<{ folder: string }>("/api/files/folder", { path }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files", "list"] });
+    },
+  });
+}
+
+export function useMoveEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      from,
+      to,
+      kind,
+    }: {
+      from: string;
+      to: string;
+      kind: "file" | "folder";
+    }) => api.post<{ moved: { from: string; to: string }[] }>("/api/files/move", { from, to, kind }),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["files", "list"] });
     },
   });

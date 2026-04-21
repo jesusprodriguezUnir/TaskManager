@@ -8,8 +8,11 @@ import {
   Activity,
   Settings,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAppSettings, useCourses, useDashboard } from "@/lib/queries";
+import { courseAccentVar } from "@/lib/theme";
 import { cn } from "@/lib/cn";
+import type { CourseCode } from "@/data/types";
 
 function semesterWeek(now: Date, startIso: string | null | undefined): number | null {
   if (!startIso) return null;
@@ -27,26 +30,27 @@ function deriveMonogram(name: string | null | undefined, fallback: string): stri
 
 type NavItemDef = {
   to: string;
-  label: string;
+  labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   end?: boolean;
 };
 
 const workspace: NavItemDef[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/courses", label: "Courses", icon: BookOpen },
-  { to: "/tasks", label: "Tasks", icon: ListChecks },
-  { to: "/files", label: "Files", icon: FolderOpen },
-  { to: "/exams", label: "Exams", icon: GraduationCap },
+  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard, end: true },
+  { to: "/courses", labelKey: "nav.courses", icon: BookOpen },
+  { to: "/tasks", labelKey: "nav.tasks", icon: ListChecks },
+  { to: "/files", labelKey: "nav.files", icon: FolderOpen },
+  { to: "/exams", labelKey: "nav.exams", icon: GraduationCap },
 ];
 const systemItems: NavItemDef[] = [
-  { to: "/activity", label: "Activity", icon: Activity },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/activity", labelKey: "nav.activity", icon: Activity },
+  { to: "/settings", labelKey: "nav.settings", icon: Settings },
 ];
 
 const mobileOrder = ["/", "/courses", "/tasks", "/files", "/exams"];
 
 export function Sidebar() {
+  const { t } = useTranslation();
   const courses = useCourses();
   const dashboard = useDashboard();
   const settings = useAppSettings();
@@ -110,7 +114,7 @@ export function Sidebar() {
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-3 pt-[14px] pb-5">
-        <NavSection label="Workspace">
+        <NavSection label={t("nav.pages")}>
           {workspace.map((item) => {
             const isTasks = item.to === "/tasks";
             return (
@@ -118,7 +122,7 @@ export function Sidebar() {
                 key={item.to}
                 to={item.to}
                 icon={item.icon}
-                label={item.label}
+                label={t(item.labelKey)}
                 end={item.end}
                 count={isTasks ? openTasksCount : undefined}
               />
@@ -126,9 +130,9 @@ export function Sidebar() {
           })}
         </NavSection>
 
-        <NavSection label="Courses">
+        <NavSection label={t("nav.courses")}>
           {(courses.data ?? []).map((c) => {
-            const accent = `var(--${c.code.toLowerCase()})`;
+            const accent = courseAccentVar(c.code as CourseCode);
             const behind = behindByCourse.get(c.code);
             return (
               <NavLink
@@ -185,13 +189,13 @@ export function Sidebar() {
           })}
         </NavSection>
 
-        <NavSection label="System">
+        <NavSection label={t("nav.sections")}>
           {systemItems.map((item) => (
             <SidebarLink
               key={item.to}
               to={item.to}
               icon={item.icon}
-              label={item.label}
+              label={t(item.labelKey)}
             />
           ))}
         </NavSection>
@@ -261,6 +265,7 @@ function SidebarLink({
 const allMobile = [...workspace, ...systemItems];
 
 export function BottomNav() {
+  const { t } = useTranslation();
   const mobileItems = mobileOrder
     .map((to) => allMobile.find((i) => i.to === to))
     .filter((x): x is (typeof allMobile)[number] => Boolean(x));
@@ -283,7 +288,7 @@ export function BottomNav() {
               {({ isActive }) => (
                 <>
                   <item.icon className={cn("h-5 w-5", isActive && "stroke-[2.25]")} />
-                  <span>{item.label}</span>
+                  <span>{t(item.labelKey)}</span>
                 </>
               )}
             </NavLink>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { Settings } from "lucide-react";
 import { fmtBerlin, now } from "@/lib/time";
+import { cn } from "@/lib/cn";
 
 export function Header({ title, subtitle }: { title: string; subtitle?: string }) {
   const [clock, setClock] = useState(() => fmtBerlin(now(), "EEE d MMM · HH:mm"));
@@ -20,13 +21,20 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-muted font-mono tabular-nums hidden md:block">{clock}</span>
-          <Link
+          <NavLink
             to="/settings"
             aria-label="Settings"
-            className="md:hidden touch-target inline-flex items-center justify-center rounded-md text-muted hover:text-fg hover:bg-surface-2 transition-colors"
+            className={({ isActive }) =>
+              cn(
+                "md:hidden touch-target inline-flex items-center justify-center rounded-md transition-colors",
+                isActive
+                  ? "bg-surface-2 text-fg"
+                  : "text-muted hover:text-fg hover:bg-surface-2"
+              )
+            }
           >
             <Settings className="h-5 w-5" />
-          </Link>
+          </NavLink>
         </div>
       </div>
     </header>

@@ -3,19 +3,37 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   CalendarDays,
+  Check,
   ChevronRight,
   Database,
-  Info,
   Loader2,
   LogOut,
+  Palette,
   RefreshCw,
   User,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { LOCALE_OPTIONS, TIMEZONE_OPTIONS } from "@/lib/locale-options";
+import { THEMES, applyTheme, normalizeTheme } from "@/lib/themes";
+import {
+  currentLanguage,
+  markLanguageExplicit,
+  setLanguage,
+  type AppLanguage,
+} from "@/lib/i18n";
+import { cn } from "@/lib/cn";
 import {
   useAppSettings,
   useDashboard,
@@ -25,6 +43,7 @@ import {
 import { fmtBerlin } from "@/lib/time";
 
 export default function Settings() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const logout = useLogout();
   const qc = useQueryClient();
@@ -37,61 +56,49 @@ export default function Settings() {
 
   async function onRefresh() {
     await qc.invalidateQueries();
-    toast.success("Refreshed");
+    toast.success(t("settings.data.refreshed"));
   }
 
   return (
     <>
-      <Header title="Settings" />
+      <Header title={t("settings.title")} />
       <div className="px-4 md:px-8 py-4 md:py-6 max-w-[720px] mx-auto w-full flex flex-col gap-4">
-        <Section icon={<User className="h-4 w-4" />} title="Profile">
+        <Section icon={<User className="h-4 w-4" />} title={t("settings.sections.profile")}>
           <ProfileForm />
         </Section>
 
-        <Section icon={<CalendarDays className="h-4 w-4" />} title="Semester">
+        <Section icon={<CalendarDays className="h-4 w-4" />} title={t("settings.sections.semester")}>
           <SemesterForm />
           <div className="mt-4 pt-3 border-t border-border/50 text-sm text-muted font-mono tabular-nums">
-            Server time ·{" "}
+            {t("settings.serverTime")} ·{" "}
             {dashboard.data ? fmtBerlin(dashboard.data.now, "EEE d MMM yyyy · HH:mm") : "—"}
           </div>
         </Section>
 
-        <Section icon={<Database className="h-4 w-4" />} title="Data">
-          <p className="text-sm text-muted mb-3">
-            Pull everything fresh from the backend — useful if you edited something via MCP and the
-            UI hasn't caught up yet.
-          </p>
+        <Section icon={<Palette className="h-4 w-4" />} title={t("settings.sections.theme")}>
+          <ThemePicker />
+        </Section>
+
+        <Section icon={<Database className="h-4 w-4" />} title={t("settings.sections.data")}>
+          <p className="text-sm text-muted mb-3">{t("settings.data.body")}</p>
           <Button onClick={onRefresh} variant="secondary">
-            <RefreshCw className="h-4 w-4" /> Refresh data
+            <RefreshCw className="h-4 w-4" /> {t("settings.data.refresh")}
           </Button>
         </Section>
 
-        <Section icon={<Activity className="h-4 w-4" />} title="Activity">
-          <p className="text-sm text-muted mb-3">
-            Every sync, MCP tool call, and edit logged chronologically.
-          </p>
+        <Section icon={<Activity className="h-4 w-4" />} title={t("settings.sections.activity")}>
+          <p className="text-sm text-muted mb-3">{t("settings.activity.body")}</p>
           <Link
             to="/activity"
             className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-surface-2 hover:bg-surface-2/80 px-3 py-2 text-sm font-medium transition-colors"
           >
-            Open activity log <ChevronRight className="h-4 w-4" />
+            {t("settings.activity.openLog")} <ChevronRight className="h-4 w-4" />
           </Link>
         </Section>
 
-        <Section icon={<Info className="h-4 w-4" />} title="About">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-            <dt className="text-muted">Frontend</dt>
-            <dd className="font-mono text-xs">Vite · React 19 · Tailwind</dd>
-            <dt className="text-muted">Backend</dt>
-            <dd className="font-mono text-xs">FastAPI · Supabase · Python MCP</dd>
-            <dt className="text-muted">Hosting</dt>
-            <dd className="font-mono text-xs">Vercel (or your own)</dd>
-          </dl>
-        </Section>
-
-        <Section icon={<LogOut className="h-4 w-4" />} title="Session">
+        <Section icon={<LogOut className="h-4 w-4" />} title={t("settings.sections.session")}>
           <Button onClick={onLogout} disabled={logout.isPending} variant="secondary">
-            <LogOut className="h-4 w-4" /> Sign out
+            <LogOut className="h-4 w-4" /> {t("settings.session.signOut")}
           </Button>
         </Section>
       </div>
@@ -100,17 +107,16 @@ export default function Settings() {
 }
 
 function ProfileForm() {
+  const { t } = useTranslation();
   const settings = useAppSettings();
   const update = useUpdateAppSettings();
 
   const [displayName, setDisplayName] = useState("");
-  const [monogram, setMonogram] = useState("");
   const [institution, setInstitution] = useState("");
 
   useEffect(() => {
     if (settings.data) {
       setDisplayName(settings.data.display_name ?? "");
-      setMonogram(settings.data.monogram ?? "");
       setInstitution(settings.data.institution ?? "");
     }
   }, [settings.data]);
@@ -119,12 +125,11 @@ function ProfileForm() {
     try {
       await update.mutateAsync({
         display_name: displayName.trim() || null,
-        monogram: monogram.trim() || null,
         institution: institution.trim() || null,
       });
-      toast.success("Profile saved");
+      toast.success(t("common.saved"));
     } catch (e) {
-      toast.error((e as Error).message || "Failed");
+      toast.error((e as Error).message || t("common.failed"));
     }
   }
 
@@ -132,44 +137,90 @@ function ProfileForm() {
     return <Loader2 className="h-4 w-4 animate-spin text-muted" />;
   }
 
-  const autoMonogram = displayName.trim().charAt(0).toUpperCase();
+  const isDirty = Boolean(
+    settings.data &&
+      ((displayName.trim() || null) !== (settings.data.display_name ?? null) ||
+        (institution.trim() || null) !== (settings.data.institution ?? null))
+  );
 
   return (
     <div className="flex flex-col gap-3">
-      <Field label="Display name" hint="Shown in the sidebar and greeting.">
+      <Field label={t("settings.profile.displayName")} hint={t("settings.profile.displayNameHint")}>
         <Input
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          placeholder="Your name"
+          placeholder={t("settings.profile.displayNamePlaceholder")}
         />
       </Field>
-      <div className="grid grid-cols-[120px_1fr] gap-3">
-        <Field label="Monogram" hint={`Auto: ${autoMonogram || "—"}`}>
-          <Input
-            value={monogram}
-            onChange={(e) => setMonogram(e.target.value.slice(0, 2))}
-            maxLength={2}
-            placeholder={autoMonogram || "A"}
-          />
-        </Field>
-        <Field label="Institution" hint="Shown under the date on the dashboard.">
-          <Input
-            value={institution}
-            onChange={(e) => setInstitution(e.target.value)}
-            placeholder="Your university"
-          />
-        </Field>
-      </div>
+      <Field label={t("settings.profile.institution")} hint={t("settings.profile.institutionHint")}>
+        <Input
+          value={institution}
+          onChange={(e) => setInstitution(e.target.value)}
+          placeholder={t("settings.profile.institutionPlaceholder")}
+        />
+      </Field>
+      <LanguagePicker />
       <div className="flex justify-end">
-        <Button onClick={onSave} disabled={update.isPending}>
-          {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save profile"}
+        <Button onClick={onSave} disabled={!isDirty || update.isPending}>
+          {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("settings.profile.saveProfile")}
         </Button>
       </div>
     </div>
   );
 }
 
+function LanguagePicker() {
+  const { t, i18n } = useTranslation();
+  // Re-render on language change by reading i18n.language each render.
+  void i18n.language;
+  const current = currentLanguage();
+
+  function onChange(v: string) {
+    const lang = (v === "de" ? "de" : "en") as AppLanguage;
+    markLanguageExplicit();
+    setLanguage(lang);
+  }
+
+  return (
+    <Field label={t("settings.language.title")}>
+      <Select value={current} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="en">{t("settings.language.english")}</SelectItem>
+          <SelectItem value="de">{t("settings.language.german")}</SelectItem>
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
+
+function nearestLocale(detected: string): string {
+  if (LOCALE_OPTIONS.find((o) => o.value === detected)) return detected;
+  const lang = detected.split("-")[0];
+  const langMatch = LOCALE_OPTIONS.find((o) => o.value.split("-")[0] === lang);
+  return langMatch?.value ?? "en-US";
+}
+
+function detectSystem() {
+  let tz = "UTC";
+  let loc = "en-US";
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    /* ignore */
+  }
+  try {
+    loc = nearestLocale(navigator.language || "en-US");
+  } catch {
+    /* ignore */
+  }
+  return { tz, loc };
+}
+
 function SemesterForm() {
+  const { t } = useTranslation();
   const settings = useAppSettings();
   const update = useUpdateAppSettings();
 
@@ -181,55 +232,191 @@ function SemesterForm() {
 
   useEffect(() => {
     if (settings.data) {
+      const { tz, loc } = detectSystem();
       setLabel(settings.data.semester_label ?? "");
       setStart(settings.data.semester_start ?? "");
       setEnd(settings.data.semester_end ?? "");
-      setTimezone(settings.data.timezone ?? "UTC");
-      setLocale(settings.data.locale ?? "en-US");
+      setTimezone(settings.data.timezone ?? tz);
+      setLocale(settings.data.locale ?? loc);
     }
   }, [settings.data]);
 
-  async function onSave() {
+  // Auto-saves the picker/date fields. The label is the only field that
+  // requires an explicit save (it's free text, you don't want to fire a request
+  // on every keystroke).
+  async function autoSave(patch: Record<string, unknown>) {
     try {
-      await update.mutateAsync({
-        semester_label: label.trim() || null,
-        semester_start: start || null,
-        semester_end: end || null,
-        timezone: timezone.trim() || "UTC",
-        locale: locale.trim() || "en-US",
-      });
-      toast.success("Semester saved");
+      await update.mutateAsync(patch);
+      toast.success(t("common.saved"), { duration: 1200 });
     } catch (e) {
-      toast.error((e as Error).message || "Failed");
+      toast.error((e as Error).message || t("common.failed"));
+    }
+  }
+
+  async function onSaveLabel() {
+    try {
+      await update.mutateAsync({ semester_label: label.trim() || null });
+      toast.success(t("common.saved"), { duration: 1200 });
+    } catch (e) {
+      toast.error((e as Error).message || t("common.failed"));
+    }
+  }
+
+  const labelDirty = Boolean(
+    settings.data &&
+      (label.trim() || null) !== (settings.data.semester_label ?? null)
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Field label={t("settings.semester.label")} hint={t("settings.semester.labelHint")}>
+        <div className="relative">
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && labelDirty) {
+                e.preventDefault();
+                onSaveLabel();
+              }
+            }}
+            placeholder={t("settings.semester.labelPlaceholder")}
+            className={labelDirty ? "pr-16" : undefined}
+          />
+          {labelDirty && (
+            <button
+              type="button"
+              onClick={onSaveLabel}
+              disabled={update.isPending}
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs font-medium text-fg bg-surface-2 hover:bg-surface px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
+            >
+              {update.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                t("settings.semester.saveLabel")
+              )}
+            </button>
+          )}
+        </div>
+      </Field>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label={t("settings.semester.startDate")} hint={t("settings.semester.startDateHint")}>
+          <Input
+            type="date"
+            value={start}
+            onChange={(e) => {
+              setStart(e.target.value);
+              autoSave({ semester_start: e.target.value || null });
+            }}
+          />
+        </Field>
+        <Field label={t("settings.semester.endDate")}>
+          <Input
+            type="date"
+            value={end}
+            onChange={(e) => {
+              setEnd(e.target.value);
+              autoSave({ semester_end: e.target.value || null });
+            }}
+          />
+        </Field>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label={t("settings.semester.timezone")}>
+          <Select
+            value={timezone}
+            onValueChange={(v) => {
+              setTimezone(v);
+              autoSave({ timezone: v });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("settings.semester.timezone")} />
+            </SelectTrigger>
+            <SelectContent className="max-h-[60vh]">
+              {TIMEZONE_OPTIONS.map((tz) => (
+                <SelectItem key={tz} value={tz}>
+                  {tz}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label={t("settings.semester.dateFormat")}>
+          <Select
+            value={locale}
+            onValueChange={(v) => {
+              setLocale(v);
+              autoSave({ locale: v });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("settings.semester.dateFormat")} />
+            </SelectTrigger>
+            <SelectContent className="max-h-[60vh]">
+              {LOCALE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+function ThemePicker() {
+  const { t: tr } = useTranslation();
+  const settings = useAppSettings();
+  const update = useUpdateAppSettings();
+  const current = normalizeTheme(settings.data?.theme);
+
+  async function pick(id: string) {
+    if (id === current) return;
+    // Apply instantly so the UI reflects the choice; the API round-trip
+    // persists it but doesn't need to block the visual change.
+    applyTheme(id);
+    try {
+      await update.mutateAsync({ theme: id });
+      toast.success(tr("common.saved"), { duration: 1200 });
+    } catch (e) {
+      // Roll back to the previous theme on failure.
+      applyTheme(current);
+      toast.error((e as Error).message || tr("common.failed"));
     }
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <Field label="Semester label" hint="e.g. 'SoSe 2026', 'Fall 2025', 'Trimester 2'.">
-        <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Fall 2026" />
-      </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Start date" hint="Used for the week counter.">
-          <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-        </Field>
-        <Field label="End date">
-          <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
-        </Field>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Timezone" hint="IANA ID, e.g. 'Europe/Berlin', 'America/New_York'.">
-          <Input value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="UTC" />
-        </Field>
-        <Field label="Locale" hint="For date formatting, e.g. 'en-US', 'de-DE'.">
-          <Input value={locale} onChange={(e) => setLocale(e.target.value)} placeholder="en-US" />
-        </Field>
-      </div>
-      <div className="flex justify-end">
-        <Button onClick={onSave} disabled={update.isPending}>
-          {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save semester"}
-        </Button>
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {THEMES.map((themeMeta) => {
+        const selected = themeMeta.id === current;
+        return (
+          <button
+            key={themeMeta.id}
+            type="button"
+            onClick={() => pick(themeMeta.id)}
+            disabled={update.isPending}
+            className={cn(
+              "text-left rounded-md border px-3 py-2.5 transition-colors",
+              selected
+                ? "border-fg bg-surface-2"
+                : "border-border/60 hover:border-border-strong hover:bg-surface-2/60"
+            )}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold">
+                {tr(`themes.list.${themeMeta.id}`, themeMeta.label)}
+              </span>
+              {selected && <Check className="h-4 w-4 text-fg" />}
+            </div>
+            <p className="text-xs text-muted mt-0.5">
+              {tr(`themes.tagline.${themeMeta.id}`, themeMeta.tagline)}
+            </p>
+          </button>
+        );
+      })}
     </div>
   );
 }

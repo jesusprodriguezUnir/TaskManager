@@ -10,23 +10,25 @@ import {
   Trash2,
   RefreshCw,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Header } from "@/components/layout/header";
 import { EmptyState } from "@/components/common/empty-state";
 import { useEvents, type ActivityEvent } from "@/lib/queries";
 import { fmtDateTime, relative } from "@/lib/time";
 import { cn } from "@/lib/cn";
 
-const KIND_FILTERS: { value: string; label: string }[] = [
-  { value: "", label: "All" },
-  { value: "sync:push", label: "Push" },
-  { value: "sync:pull", label: "Pull" },
-  { value: "sync:watch", label: "Watch" },
+const KIND_FILTERS: { value: string; labelKey: string }[] = [
+  { value: "", labelKey: "activity.filter.all" },
+  { value: "sync:push", labelKey: "activity.filter.push" },
+  { value: "sync:pull", labelKey: "activity.filter.pull" },
+  { value: "sync:watch", labelKey: "activity.filter.watch" },
 ];
 
 // Low-signal events that fire on every PDF open / listing — hidden by default.
 const NOISE_KINDS = new Set(["storage:sign", "storage:sign:upload"]);
 
 export default function Activity() {
+  const { t } = useTranslation();
   const [kind, setKind] = useState<string>("");
   const [verbose, setVerbose] = useState(false);
   const { data, isPending, error } = useEvents({ kind: kind || undefined, limit: 200 });
@@ -39,7 +41,7 @@ export default function Activity() {
 
   return (
     <>
-      <Header title="Activity" subtitle="Sync + system events" />
+      <Header title={t("activity.title")} />
       <div className="px-4 md:px-8 py-4 md:py-6 max-w-[900px] mx-auto w-full flex flex-col gap-4">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex gap-2 overflow-x-auto flex-1 min-w-0">
@@ -55,7 +57,7 @@ export default function Activity() {
                     : "border-border/60 text-muted hover:text-fg hover:bg-surface-2"
                 )}
               >
-                {f.label}
+                {t(f.labelKey)}
               </button>
             ))}
           </div>
@@ -66,7 +68,7 @@ export default function Activity() {
               onChange={(e) => setVerbose(e.target.checked)}
               className="h-3.5 w-3.5"
             />
-            Verbose
+            {t("activity.verbose")}
           </label>
         </div>
 
@@ -75,11 +77,11 @@ export default function Activity() {
             <Loader2 className="h-5 w-5 animate-spin text-muted" />
           </div>
         ) : error ? (
-          <p className="text-sm text-critical">Couldn't load activity.</p>
+          <p className="text-sm text-critical">{t("activity.loadFailed")}</p>
         ) : !filtered || filtered.length === 0 ? (
           <EmptyState
-            title="No activity yet"
-            description="Events appear here when sync runs, files upload, or the MCP tool fires."
+            title={t("activity.empty.title")}
+            description={t("activity.empty.description")}
           />
         ) : (
           <div className="flex flex-col gap-4">

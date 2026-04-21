@@ -11,8 +11,32 @@ A self-hostable personal study dashboard. Track your **courses, schedule, lectur
 ![Self-hosted](https://img.shields.io/badge/hosting-self--hosted-111)
 ![Status: alpha](https://img.shields.io/badge/status-alpha-orange)
 
-![Dashboard](docs/screenshots/dashboard.png)
-![Courses](docs/screenshots/courses.png)
+### Five themes — pick the one that fits your brain
+
+<table>
+  <tr>
+    <td align="center"><strong>Classic</strong><br/><sub>the default — serif, airy, muted</sub></td>
+    <td align="center"><strong>Zine</strong><br/><sub>pastel cream + hand-drawn stickers</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/theme-classic.png" alt="Classic theme" /></td>
+    <td><img src="docs/screenshots/theme-zine.png" alt="Zine theme" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Library</strong><br/><sub>cream paper + sepia, card-catalog aesthetic</sub></td>
+    <td align="center"><strong>Swiss</strong><br/><sub>12-column grid + red accent, Helvetica-era</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/theme-library.png" alt="Library theme" /></td>
+    <td><img src="docs/screenshots/theme-swiss.png" alt="Swiss theme" /></td>
+  </tr>
+</table>
+
+**Terminal** — mono everywhere, teal-on-black, hacker cockpit:
+
+![Terminal theme](docs/screenshots/theme-terminal.gif)
+
+Switch between all five in **Settings → Theme**. Each one is a full reskin of the dashboard, sidebar, and typography — not just a color palette.
 
 ### Demo — Claude reading a lecture PDF from the app over MCP
 
@@ -26,29 +50,29 @@ Claude calls `list_course_files` to locate the PDF in the app's file store, then
 
 Before any of the day-to-day stuff, I had to get a semester's worth of courses, schedules, exam rules, and lecture material into the app. I didn't want to do that by hand and I didn't want to write a bespoke import script, so I let Claude Code do it:
 
-1. **Pulled everything off my university's LMS *(Moodle, in my case)* into a local folder.** For each course I downloaded the syllabus, schedule, the professor's organizational slides, existing exercise sheets *(Übungsblätter)*, and the official module catalogue *(Modulhandbuch)*. Structure on disk:
+1. **Pulled everything off my university's LMS *(Moodle, in my case)* into a local folder.** For each course I downloaded the syllabus, schedule, the professor's organizational slides, existing exercise sheets, and the official module catalogue. Structure on disk:
 
    ```
    Semester 4/
      semester.md              # one-liner per course, semester dates, links
      schedule.md              # weekly schedule (my source of truth)
-     module-catalogue.pdf     # (Modulhandbuch)
+     module-catalogue.pdf
      ASB/
        course.md              # structured source-of-truth (see below)
        00_introduction.pdf    # prof's org slides
-       exercise-sheets/       # (Übungsblätter)
-     Computer-Architecture/   # (Rechnerarchitektur)
+       exercise-sheets/
+     Computer-Architecture/
        course.md
        1 Intro und History.pdf
        ...
      ...
    ```
 
-2. **Had Claude Code build one `course.md` per course.** It read every PDF, the LMS *(Moodle)* copy, and the module catalogue entry, and produced a normalized markdown with a `Meta` table (official name, module code, ECTS, professor, language, exam format, retries, weight), the weekly schedule in the prof's own words, and any grading rules / attendance requirements (e.g. "lab attendance *(Praktikum)* ≥ 75 % for exam admission"). That file became the course's source of truth — everything else downstream pulls from it.
+2. **Had Claude Code build one `course.md` per course.** It read every PDF, the LMS copy, and the module catalogue entry, and produced a normalized markdown with a `Meta` table (official name, module code, ECTS, professor, language, exam format, retries, weight), the weekly schedule in the prof's own words, and any grading rules / attendance requirements (e.g. "lab attendance ≥ 75 % for exam admission"). That file became the course's source of truth — everything else downstream pulls from it.
 
 3. **Seeded the dashboard via the MCP connector.** With Claude Code pointed at the running dashboard over MCP, I asked it to walk through each `course.md` and:
    - `create_course` with the meta (code, full name, color, ECTS, professor, language, and a `folder_name` matching the local folder — so the course-detail **Files** tab scopes to the right prefix in the bucket)
-   - `create_schedule_slot` for every recurring slot in `schedule.md` (kind is `lecture` / `exercise` / `tutorial` / `lab` — German aliases *Vorlesung / Übung / Tutorium / Praktikum* are still accepted on input)
+   - `create_schedule_slot` for every recurring slot in `schedule.md` (kind is `lecture` / `exercise` / `tutorial` / `lab`)
    - `update_exam` with the exam format + retries
    - `create_deliverable` for every known exercise sheet / project deadline in the semester
    - upload every PDF from each course folder into the `course_files` bucket (so `read_course_file` can hand them to Claude as vision later)
@@ -57,7 +81,7 @@ Before any of the day-to-day stuff, I had to get a semester's worth of courses, 
 
 4. **Opened the dashboard → everything was there.** Weekly grid populated, four courses with accents, exam info per course, every exercise sheet showing up in the deadlines list.
 
-**From then on it's incremental.** New lectures land on the LMS *(Moodle)*, I either drop the PDFs into the corresponding `Semester 4/<course>/` folder on my laptop (Claude Code picks them up and uploads) or drag-and-drop them straight into the app's **Files** view. If the `course.md` needs an update (new grading rule announced, exam date confirmed, topic added), Claude edits the markdown *and* pushes the change through the MCP (`update_course`, `update_exam`, etc.) so the dashboard and the source-of-truth stay aligned.
+**From then on it's incremental.** New lectures land on the LMS, I either drop the PDFs into the corresponding `Semester 4/<course>/` folder on my laptop (Claude Code picks them up and uploads) or drag-and-drop them straight into the app's **Files** view. If the `course.md` needs an update (new grading rule announced, exam date confirmed, topic added), Claude edits the markdown *and* pushes the change through the MCP (`update_course`, `update_exam`, etc.) so the dashboard and the source-of-truth stay aligned.
 
 ### A typical week
 
@@ -199,8 +223,7 @@ scripts/
   sync.py           Optional: mirror a local folder to the course_files bucket
 docs/
   claude-ai-system-prompt.md    Template + walkthrough for a Claude.ai Project
-  claude-design-brief.md        Template for writing a Claude Design redesign brief
-  examples/                     Real lived-in versions of both
+  examples/                     Real lived-in versions, including the brief that produced this UI
 ```
 
 ## Stack
@@ -213,12 +236,7 @@ docs/
 
 ## Design
 
-The visual design was prototyped in [Claude Design](https://claude.ai/design). The brief that produced it — plus a reusable template for writing your own briefs — is at [`docs/claude-design-brief.md`](./docs/claude-design-brief.md).
-The one that i used to transform the UI is at (If you are coming from the reddit post) [`docs/examples/design-brief-example.md`](./docs/examples/design-brief-example.md).
-
-## Heads up
-
-This started as a personal project for a German university. The UI, MCP tools, and database are now all English-canonical (slot kinds are `lecture` / `exercise` / `tutorial` / `lab`; the end-of-semester exam table is just `exams`). Legacy German values (`Vorlesung`, `Übung`, `Tutorium`, `Praktikum`, `Abgabe`) are still accepted at the API boundary and normalised on the way in — so any older MCP integration keeps working. Proper in-app i18n (EN + DE, user-switchable) is planned; PRs welcome.
+The visual design was prototyped in [Claude Design](https://claude.ai/design). The brief that produced this UI is at [`docs/examples/design-brief-example.md`](./docs/examples/design-brief-example.md).
 
 ## License
 
@@ -243,8 +261,32 @@ Full contributor notes (setup, style, testing, what's likely in vs. out of scope
 
 Ein self-hostbares, persönliches Studien-Dashboard. Behalte deine **Kurse, deinen Stundenplan, Vorlesungen, Lernthemen, Abgaben und Aufgaben** an einem Ort im Blick — und lass **Claude** die App aus deinem **Browser**, vom **Handy**, vom **Desktop** oder aus **Claude Code** heraus bedienen.
 
-![Dashboard](docs/screenshots/dashboard.png)
-![Courses](docs/screenshots/courses.png)
+### Fünf Themes — such dir das aus, das zu deinem Kopf passt
+
+<table>
+  <tr>
+    <td align="center"><strong>Klassisch</strong><br/><sub>der Standard — Serif, luftig, gedeckt</sub></td>
+    <td align="center"><strong>Zine</strong><br/><sub>Pastell-Creme + handgemachte Sticker</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/theme-classic.png" alt="Klassisches Theme" /></td>
+    <td><img src="docs/screenshots/theme-zine.png" alt="Zine-Theme" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Bibliothek</strong><br/><sub>Creme-Papier + Sepia, Karteikasten-Ästhetik</sub></td>
+    <td align="center"><strong>Swiss</strong><br/><sub>12-Spalten-Raster + rot akzentuiert, Helvetica-Ära</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/theme-library.png" alt="Bibliothek-Theme" /></td>
+    <td><img src="docs/screenshots/theme-swiss.png" alt="Swiss-Theme" /></td>
+  </tr>
+</table>
+
+**Terminal** — Monospace überall, Türkis auf Schwarz, Hacker-Cockpit:
+
+![Terminal-Theme](docs/screenshots/theme-terminal.gif)
+
+Unter **Einstellungen → Theme** zwischen allen fünf wechseln. Jedes ist ein vollständiger Reskin von Dashboard, Sidebar und Typografie — nicht bloss eine andere Farbpalette.
 
 ### Demo — Claude liest ein Vorlesungs-PDF direkt aus der App über MCP
 
@@ -280,7 +322,7 @@ Bevor der Alltag losgeht, musste ich erst mal ein ganzes Semester an Kursen, Stu
 
 3. **Das Dashboard über den MCP-Connector befüllt.** Mit Claude Code am laufenden Dashboard angedockt, habe ich es jede `course.md` durchgehen lassen, um:
    - `create_course` mit den Metadaten aufzurufen (Kürzel, voller Name, Farbe, ECTS, Dozent:in, Sprache und ein `folder_name`, der dem lokalen Ordner entspricht — damit der **Files**-Tab der Kursdetailseite das richtige Präfix im Bucket filtert)
-   - `create_schedule_slot` für jeden wiederkehrenden Termin aus `schedule.md` (`kind` ist `lecture` / `exercise` / `tutorial` / `lab` — die deutschen Aliasse *Vorlesung / Übung / Tutorium / Praktikum* werden beim Input weiterhin akzeptiert)
+   - `create_schedule_slot` für jeden wiederkehrenden Termin aus `schedule.md` (`kind` ist `lecture` / `exercise` / `tutorial` / `lab`)
    - `update_exam` mit Prüfungsformat + Versuchszahl
    - `create_deliverable` für jede bekannte Übungsblatt-/Projekt-Deadline im Semester
    - jedes PDF aus den Kursordnern in den `course_files`-Bucket hochzuladen (damit `read_course_file` sie Claude später als Vision übergeben kann)
@@ -431,8 +473,7 @@ scripts/
   sync.py           Optional: lokalen Ordner in den course_files-Bucket spiegeln
 docs/
   claude-ai-system-prompt.md    Vorlage + Walkthrough für ein Claude.ai-Project
-  claude-design-brief.md        Vorlage für ein Claude-Design-Redesign-Brief
-  examples/                     echte, gelebte Versionen von beidem
+  examples/                     echte, gelebte Versionen, inklusive des Briefs, aus dem diese UI entstand
 ```
 
 ## Stack
@@ -445,12 +486,7 @@ docs/
 
 ## Design
 
-Das visuelle Design wurde in [Claude Design](https://claude.ai/design) prototypt. Das Brief, aus dem es entstanden ist — plus eine wiederverwendbare Vorlage, mit der du dein eigenes schreiben kannst — liegt in [`docs/claude-design-brief.md`](./docs/claude-design-brief.md).
-Das, das ich für die UI-Umgestaltung genutzt habe, liegt unter (falls du vom Reddit-Post kommst) [`docs/examples/design-brief-example.md`](./docs/examples/design-brief-example.md).
-
-## Hinweis
-
-Das hier ist als persönliches Projekt für eine deutsche Uni gestartet. UI, MCP-Tools und Datenbank sind inzwischen alle englisch-kanonisch (Slot-Kinds heißen `lecture` / `exercise` / `tutorial` / `lab`; die End-Semester-Klausur-Tabelle heißt einfach `exams`). Die deutschen Legacy-Werte (`Vorlesung`, `Übung`, `Tutorium`, `Praktikum`, `Abgabe`) werden am API-Rand weiterhin angenommen und beim Einlesen normalisiert — ältere MCP-Integrationen funktionieren also unverändert. Richtige In-App-i18n (EN + DE, umschaltbar) ist geplant; PRs willkommen.
+Das visuelle Design wurde in [Claude Design](https://claude.ai/design) prototypt. Das Brief, aus dem diese UI entstanden ist, liegt in [`docs/examples/design-brief-example.md`](./docs/examples/design-brief-example.md).
 
 ## Lizenz
 

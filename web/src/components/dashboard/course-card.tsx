@@ -25,7 +25,11 @@ export function CourseCard({
     <Link
       to={`/courses/${course.code}`}
       className={cn(
-        "card relative overflow-hidden block cursor-pointer transition-[border-color,transform] hover:border-border-strong",
+        "card relative overflow-hidden block cursor-pointer",
+        "transition-[border-color,transform,box-shadow,background] duration-150 ease-out",
+        "hover:border-border-strong hover:-translate-y-0.5",
+        "hover:shadow-[0_8px_24px_-8px_oklch(0_0_0_/_0.45),0_2px_6px_-2px_oklch(0_0_0_/_0.35)]",
+        "hover:bg-[color-mix(in_oklch,var(--accent)_5%,var(--surface))]",
         "px-4 pt-3.5 pb-3.5 flex flex-col gap-3 min-h-[148px]"
       )}
       style={{ ["--accent" as string]: accent } as CSSProperties}

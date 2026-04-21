@@ -145,3 +145,40 @@ def signed_upload_url(path: str) -> dict[str, Any]:
     full = f"{_base_url()}{rel}" if rel.startswith("/") else rel
     _log("storage:sign:upload", {"path": path})
     return {"url": full, "token": data.get("token"), "path": path}
+
+
+def move(source: str, destination: str) -> dict[str, Any]:
+    """Rename / move an object server-side (no download/re-upload)."""
+    resp = httpx.post(
+        f"{_base_url()}/object/move",
+        headers={**_headers(), "Content-Type": "application/json"},
+        json={
+            "bucketId": BUCKET,
+            "sourceKey": source,
+            "destinationKey": destination,
+        },
+        timeout=30.0,
+    )
+    resp.raise_for_status()
+    _log("storage:move", {"from": source, "to": destination})
+    return resp.json()
+
+
+def list_recursive(prefix: str) -> list[str]:
+    """Return every object path under `prefix`, descending into subfolders.
+    Used for recursive folder operations (delete, rename)."""
+    out: list[str] = []
+    stack: list[str] = [prefix.strip("/")]
+    while stack:
+        cur = stack.pop()
+        entries = list_files(prefix=cur, limit=1000)
+        for e in entries:
+            name = e.get("name") or ""
+            if not name:
+                continue
+            child = f"{cur}/{name}" if cur else name
+            if e.get("id") is None:
+                stack.append(child)
+            else:
+                out.append(child)
+    return out

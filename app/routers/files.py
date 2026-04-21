@@ -99,3 +99,103 @@ async def upload_url(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(500, f"failed to sign upload: {exc}") from exc
     return result
+
+
+def _safe_key(raw: str) -> str:
+    """Reject traversal, normalise slashes. Empty result raises."""
+    cleaned = (raw or "").strip().strip("/")
+    if not cleaned or ".." in cleaned:
+        raise HTTPException(400, "invalid path")
+    return cleaned
+
+
+@router.delete("")
+async def delete(
+    path: str = Query(...),
+    kind: str = Query(default="file", pattern="^(file|folder)$"),
+) -> dict[str, Any]:
+    """Delete a file or a whole folder (recursive) from the bucket."""
+    key = _safe_key(path)
+    if kind == "file":
+        try:
+            storage_svc.delete([key])
+        except Exception as exc:
+            raise HTTPException(500, f"failed to delete: {exc}") from exc
+        return {"deleted": [key]}
+
+    # folder: list everything under prefix and bulk-delete
+    try:
+        children = storage_svc.list_recursive(key)
+    except Exception as exc:
+        raise HTTPException(500, f"failed to list folder: {exc}") from exc
+    if not children:
+        # supabase has no real folders — nothing to delete is a no-op
+        return {"deleted": []}
+    try:
+        storage_svc.delete(children)
+    except Exception as exc:
+        raise HTTPException(500, f"failed to delete folder: {exc}") from exc
+    return {"deleted": children}
+
+
+@router.post("/folder")
+async def create_folder(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Create an empty folder. Supabase Storage has no folder primitive — we
+    upload a `.keep` placeholder so the prefix shows up in listings."""
+    raw = (body.get("path") or "").strip().strip("/")
+    if not raw or ".." in raw:
+        raise HTTPException(400, "invalid path")
+    key = _sanitize_path(raw)
+    if not key:
+        raise HTTPException(400, "path empty after sanitisation")
+    placeholder = f"{key}/.keep"
+    try:
+        storage_svc.upload(placeholder, b"", content_type="application/octet-stream")
+    except Exception as exc:
+        raise HTTPException(500, f"failed to create folder: {exc}") from exc
+    return {"folder": key, "placeholder": placeholder}
+
+
+@router.post("/move")
+async def move(body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """Rename or move a file or folder within the bucket.
+
+    Body: {from, to, kind: "file"|"folder"}. For files, calls Supabase
+    `/object/move` once. For folders, lists every descendant and moves each.
+    """
+    src = _safe_key(body.get("from") or "")
+    dst_raw = (body.get("to") or "").strip().strip("/")
+    if not dst_raw or ".." in dst_raw:
+        raise HTTPException(400, "invalid destination")
+    dst = _sanitize_path(dst_raw)
+    if not dst:
+        raise HTTPException(400, "destination empty after sanitisation")
+    kind = body.get("kind") or "file"
+    if kind not in ("file", "folder"):
+        raise HTTPException(400, "kind must be file or folder")
+    if src == dst:
+        return {"moved": []}
+    if kind == "file":
+        try:
+            storage_svc.move(src, dst)
+        except Exception as exc:
+            raise HTTPException(500, f"failed to move: {exc}") from exc
+        return {"moved": [{"from": src, "to": dst}]}
+
+    # folder: list children, move each preserving relative path
+    try:
+        children = storage_svc.list_recursive(src)
+    except Exception as exc:
+        raise HTTPException(500, f"failed to list folder: {exc}") from exc
+    moved: list[dict[str, str]] = []
+    for child in children:
+        rel = child[len(src) :].lstrip("/")
+        new_path = f"{dst}/{rel}" if rel else dst
+        try:
+            storage_svc.move(child, new_path)
+            moved.append({"from": child, "to": new_path})
+        except Exception as exc:
+            raise HTTPException(
+                500, f"failed mid-move at {child}: {exc} ({len(moved)} moved so far)"
+            ) from exc
+    return {"moved": moved}

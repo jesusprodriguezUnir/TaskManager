@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Header } from "@/components/layout/header";
 import { CourseAccentBar } from "@/components/common/course-accent";
 import { StatusChip } from "@/components/common/status-chip";
@@ -9,13 +10,14 @@ import { useCourses, useExams } from "@/lib/queries";
 import { fmtDateTime } from "@/lib/time";
 
 export default function Exams() {
+  const { t } = useTranslation();
   const courses = useCourses();
   const exams = useExams();
 
   if (courses.isPending || exams.isPending) {
     return (
       <>
-        <Header title="Exams" />
+        <Header title={t("exams.title")} />
         <div className="px-4 py-12 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted" />
         </div>
@@ -25,9 +27,9 @@ export default function Exams() {
   if (courses.error || exams.error || !courses.data || !exams.data) {
     return (
       <>
-        <Header title="Exams" />
+        <Header title={t("exams.title")} />
         <div className="px-4 py-12 text-center text-sm text-critical">
-          Couldn't load exams.
+          {t("common.failed")}
         </div>
       </>
     );
@@ -35,10 +37,10 @@ export default function Exams() {
 
   return (
     <>
-      <Header title="Exams" subtitle="End-of-semester exam overview" />
+      <Header title={t("exams.title")} />
       <div className="px-4 md:px-8 py-4 md:py-6 max-w-[1200px] mx-auto w-full">
         {exams.data.length === 0 ? (
-          <EmptyState title="No exams tracked yet" />
+          <EmptyState title={t("exams.empty", "No exams tracked yet")} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {courses.data.map((c) => {
@@ -66,32 +68,32 @@ export default function Exams() {
 
                     <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-sm">
                       <div>
-                        <p className="text-[11px] uppercase tracking-wide text-muted">Date</p>
+                        <p className="text-[11px] uppercase tracking-wide text-muted">{t("courseDetail.overview.examDate")}</p>
                         <p className="font-medium">
-                          {e.scheduled_at ? fmtDateTime(e.scheduled_at) : <span className="text-muted">TBD</span>}
+                          {e.scheduled_at ? fmtDateTime(e.scheduled_at) : <span className="text-muted">{t("courseDetail.overview.tbd")}</span>}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] uppercase tracking-wide text-muted">Duration</p>
-                        <p className="font-medium">{e.duration_min ? `${e.duration_min} min` : "—"}</p>
+                        <p className="text-[11px] uppercase tracking-wide text-muted">{t("courseDetail.overview.duration")}</p>
+                        <p className="font-medium">{e.duration_min ? t("courseDetail.overview.minutes", { n: e.duration_min }) : "—"}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] uppercase tracking-wide text-muted">Structure</p>
+                        <p className="text-[11px] uppercase tracking-wide text-muted">{t("courseDetail.overview.structure")}</p>
                         <p className="font-medium">{e.structure ?? "—"}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] uppercase tracking-wide text-muted">Aids</p>
+                        <p className="text-[11px] uppercase tracking-wide text-muted">{t("courseDetail.overview.aids")}</p>
                         <p className="font-medium">{e.aids_allowed ?? "—"}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] uppercase tracking-wide text-muted">Weight</p>
+                        <p className="text-[11px] uppercase tracking-wide text-muted">{t("courseDetail.overview.weight")}</p>
                         <p className="font-medium">{e.weight_pct}%</p>
                       </div>
                       <div>
-                        <p className="text-[11px] uppercase tracking-wide text-muted">Retries</p>
+                        <p className="text-[11px] uppercase tracking-wide text-muted">{t("exams.retries", "Retries")}</p>
                         <p className="font-medium">
                           {c.exam_retries === null || c.exam_retries === undefined
-                            ? "Unlimited"
+                            ? t("exams.unlimited", "Unlimited")
                             : c.exam_retries}
                         </p>
                       </div>
@@ -99,7 +101,7 @@ export default function Exams() {
 
                     {e.scheduled_at && (
                       <div className="flex items-center gap-2 pt-1">
-                        <span className="text-xs text-muted">Countdown:</span>
+                        <span className="text-xs text-muted">{t("exams.countdown", "Countdown:")}</span>
                         <CountdownChip target={e.scheduled_at} />
                       </div>
                     )}
