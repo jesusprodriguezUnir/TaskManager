@@ -51,3 +51,11 @@ CLAUDE.md
 ROADMAP.md
 launch-posts.md
 OPENSTUDY-PLAN.md
+
+# brand build tooling + internal preview (finished SVG/PNG assets ARE committed)
+docs/brand/preview.html
+docs/brand/wordmark/debug.svg
+scripts/_vectorize_mark.py
+scripts/_build_wordmark.py
+scripts/_remove_watermark.py
+scripts/_export_brand.py

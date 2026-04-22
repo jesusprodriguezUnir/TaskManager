@@ -1,6 +1,11 @@
 <p align="right"><sub><a href="#deutsch">🇩🇪 Auf Deutsch lesen ↓</a></sub></p>
 
-# OpenStudy
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/wordmark/on-dark.svg">
+    <img alt="OpenStudy" src="docs/brand/wordmark/on-light.svg" width="520">
+  </picture>
+</p>
 
 A self-hostable personal study dashboard. Track your **courses, schedule, lectures, study topics, deliverables, and tasks** in one place — and let **Claude** use the app from your **browser**, **phone**, **desktop**, or **Claude Code**.
 
@@ -503,5 +508,12 @@ MIT — mach damit, was du willst. Credits / ein Star / ein Backlink sind nett, 
 Wenn du unsicher bist, ob eine größere Änderung im Scope ist, reicht ein kurzes *„würdest du einen PR für X annehmen?"*-Issue.
 
 Vollständige Contributor-Notes (Setup, Stil, Tests, was eher rein- vs. rausfällt) liegen in [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-wordmark-with-mark-transparent-cream.svg">
+    <img alt="OpenStudy" src="docs/brand/logo-wordmark-with-mark-transparent.svg" width="320">
+  </picture>
+</p>
 
 </details>
