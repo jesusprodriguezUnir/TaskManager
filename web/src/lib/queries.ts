@@ -55,10 +55,12 @@ function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
 }
 
 // ── Session ─────────────────────────────────────────────────────────────────
+export type SessionInfo = { authed: boolean; totp_enabled: boolean };
+
 export function useSession() {
   return useQuery({
     queryKey: qk.session,
-    queryFn: () => api.get<{ authed: boolean }>("/api/auth/session"),
+    queryFn: () => api.get<SessionInfo>("/api/auth/session"),
     refetchOnWindowFocus: true,
     staleTime: 60_000,
   });
@@ -67,8 +69,8 @@ export function useSession() {
 export function useLogin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (password: string) =>
-      api.post<{ authed: boolean }>("/api/auth/login", { password }),
+    mutationFn: (input: { password: string; totp_code?: string }) =>
+      api.post<SessionInfo>("/api/auth/login", input),
     onSuccess: (data) => {
       qc.setQueryData(qk.session, data);
       invalidateAll(qc);
@@ -81,6 +83,32 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => api.post("/api/auth/logout"),
     onSuccess: () => qc.clear(),
+  });
+}
+
+// ── TOTP setup / disable ───────────────────────────────────────────────────
+export function useTotpSetup() {
+  return useMutation({
+    mutationFn: () =>
+      api.post<{ secret: string; provisioning_uri: string }>("/api/auth/totp/setup", {}),
+  });
+}
+
+export function useTotpEnable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) =>
+      api.post<SessionInfo>("/api/auth/totp/enable", { code }),
+    onSuccess: (data) => qc.setQueryData(qk.session, data),
+  });
+}
+
+export function useTotpDisable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) =>
+      api.post<SessionInfo>("/api/auth/totp/disable", { code }),
+    onSuccess: (data) => qc.setQueryData(qk.session, data),
   });
 }
 
@@ -435,6 +463,38 @@ export function useFilesList(prefix: string) {
   });
 }
 
+export type FileSearchHit = {
+  path: string;
+  course_code: string | null;
+  size: number;
+  rank: number;
+  snippet: string;
+};
+
+export function useFileSearch(query: string) {
+  const trimmed = query.trim();
+  return useQuery({
+    queryKey: ["files", "search", trimmed],
+    queryFn: () =>
+      api.get<FileSearchHit[]>("/api/files/search", { q: trimmed, limit: 20 }),
+    enabled: trimmed.length >= 2,
+    staleTime: 30_000,
+  });
+}
+
+export function useLectureMaterials(courseCode: string | null) {
+  return useQuery({
+    queryKey: ["files", "lecture-materials", courseCode],
+    queryFn: () =>
+      api.get<Record<string, Array<{ name: string; path: string }>>>(
+        "/api/files/lecture-materials",
+        { course_code: courseCode! }
+      ),
+    enabled: Boolean(courseCode),
+    staleTime: 30_000,
+  });
+}
+
 export function useFileSignedUrl(path: string | null) {
   return useQuery({
     queryKey: ["files", "signed-url", path],
@@ -468,6 +528,24 @@ export function useEvents(opts: { kind?: string; course_code?: string; limit?: n
       }),
     refetchOnWindowFocus: true,
     staleTime: 30_000,
+  });
+}
+
+export function useSyncMoodle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (course?: string) => {
+      const path = course
+        ? `/api/files/sync-moodle?course=${encodeURIComponent(course)}`
+        : "/api/files/sync-moodle";
+      return api.post<{ ok: boolean; written_count: number; plan: { newOrChanged?: number; unchanged?: number; errors?: number }; errors: number; course?: string }>(
+        path,
+        {}
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["files", "list"] });
+    },
   });
 }
 

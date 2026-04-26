@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from ..db import supabase
+from ..db import client
 from ..schemas import Event, EventCreate
 from ._helpers import model_dump_clean
 
@@ -12,7 +12,7 @@ def list_events(
     course_code: Optional[str] = None,
     limit: int = 100,
 ) -> List[Event]:
-    q = supabase().table("events").select("*").order("created_at", desc=True).limit(limit)
+    q = client().table("events").select("*").order("created_at", desc=True).limit(limit)
     if since:
         q = q.gte("created_at", since.isoformat())
     if kind:
@@ -24,5 +24,5 @@ def list_events(
 
 
 def record_event(payload: EventCreate) -> Event:
-    resp = supabase().table("events").insert(model_dump_clean(payload)).execute()
+    resp = client().table("events").insert(model_dump_clean(payload)).execute()
     return Event.model_validate(resp.data[0])

@@ -1,272 +1,317 @@
 # Install OpenStudy
 
-Step-by-step, from empty machine to a running dashboard with an MCP connector live in Claude.
+End-to-end self-hosting guide. The whole stack — Postgres, PostgREST, the
+FastAPI backend, the static frontend, and a reverse proxy with TLS — runs
+on a single Docker host. Anything that runs Docker works: a small VPS, a
+home server, a spare laptop.
 
-End-to-end: **~15 minutes** on a good connection.
-
-- [0. Prereqs](#0-prereqs)
-- [1. Create your Supabase project](#1-create-your-supabase-project)
-- [2. Clone + install deps](#2-clone--install-deps)
-- [3. Fill in `.env`](#3-fill-in-env)
-- [4. Apply the migrations](#4-apply-the-migrations)
-- [5. Run it locally](#5-run-it-locally)
-- [6. Deploy to Vercel (or skip)](#6-deploy-to-vercel-or-skip)
-- [7. Connect an MCP client](#7-connect-an-mcp-client)
-- [Troubleshooting](#troubleshooting)
+If you only want a high-level pitch, see [README.md](./README.md). This file
+is the operational walkthrough.
 
 ---
 
-## 0. Prereqs
+## Contents
 
-You'll need Node 20+, pnpm, Python 3.12, and [`uv`](https://docs.astral.sh/uv/). One-liners per OS:
+1. [Prerequisites](#1-prerequisites)
+2. [Clone the repo](#2-clone-the-repo)
+3. [Generate secrets and write the env files](#3-generate-secrets-and-write-the-env-files)
+4. [Bring up the stack](#4-bring-up-the-stack)
+5. [Build and serve the frontend](#5-build-and-serve-the-frontend)
+6. [Put it on a public domain (optional, required for hosted Claude clients)](#6-put-it-on-a-public-domain)
+7. [Connect an MCP client](#7-connect-an-mcp-client)
+8. [Day-2 operations](#8-day-2-operations)
+9. [Troubleshooting](#9-troubleshooting)
 
-**Windows** (PowerShell or terminal):
+---
 
-```powershell
-winget install OpenJS.NodeJS.LTS
-winget install --id=astral-sh.uv
-uv python install 3.12
-corepack enable
-corepack prepare pnpm@latest --activate
-```
+## 1. Prerequisites
 
-**macOS** (with [Homebrew](https://brew.sh)):
+On the box that will run the stack:
 
-```bash
-brew install node uv
-uv python install 3.12
-corepack enable
-corepack prepare pnpm@latest --activate
-```
+- **Docker** ≥ 24 with **Compose v2.30+** (we rely on the `format: raw` env-file flag)
+- **Bash** + standard GNU tools (`openssl`, `curl`, `sed`, `grep`)
 
-**Linux**:
+On a workstation (which can be the same box) for building the frontend:
 
-```bash
-# Node via nvm (https://github.com/nvm-sh/nvm#install--update-script)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-nvm install 20
+- **Node 20+** + **pnpm** (`corepack enable && corepack prepare pnpm@latest --activate`)
 
-# uv — it'll install Python 3.12 for us
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv python install 3.12
+That's it. No Python on the host — the backend builds inside Docker.
 
-corepack enable
-corepack prepare pnpm@latest --activate
-```
+---
 
-Already have some of them? Skip the lines you don't need.
-
-You'll also need:
-
-- A **Supabase** account (free tier is fine). [Sign up](https://supabase.com).
-- A **Vercel** account *(only if you want the app reachable from the internet — i.e. Claude.ai and the iOS app. Any other Python-capable host works too, `vercel.json` is just the pre-configured path.)*
-
-> On Windows, `python` may not be on your PATH even though Python is installed — the launcher is called `py` instead. Anywhere you see `python -c '...'` below, `py -c '...'` works equivalently.
-
-## 1. Create your Supabase project
-
-1. **supabase.com → New project**. Pick any region near you. **Set a database password and save it somewhere secure** — you can't retrieve it later, only reset it.
-2. Wait ~1 minute for it to provision. You'll land on the project overview.
-3. Grab your **Project URL**: in the project overview page, click the **Copy** button (right under your project name) → select **Project URL**. This will be your `SUPABASE_URL`. You will need this when filling in the `.env` file.
-4. Grab your **service_role key**: sidebar → **Project Settings → API Keys** → switch to the **"Legacy anon, service_role API keys"** tab → copy the **`service_role` secret**. This will be your `SUPABASE_SERVICE_KEY`. Treat it like a database password — anyone who has it can read and write your entire database. Keep it safe! You will need this when filling in the `.env` file.
-
-## 2. Clone + install deps
+## 2. Clone the repo
 
 ```bash
-git clone https://github.com/openstudy-dev/OpenStudy
-cd OpenStudy
-
-uv sync                              # Python deps
-cd web && pnpm install && cd ..      # frontend deps
+git clone https://github.com/openstudy-dev/OpenStudy /opt/openstudy
+cd /opt/openstudy
 ```
 
-## 3. Fill in `.env`
+`/opt/openstudy` is the conventional install path used in the rest of this
+guide. Anywhere else works; just adjust the paths below.
+
+---
+
+## 3. Generate secrets and write the env files
+
+OpenStudy reads two env files, both kept out of git:
+
+- **`.env`** — application secrets used by the FastAPI container
+  (login password hash, session secret, optional integrations).
+- **`.env.docker`** — Postgres credentials only, used to spin up the
+  database and PostgREST containers.
+
+Create them:
 
 ```bash
+# .env — copy the template, then fill in the placeholders
 cp .env.example .env
+
+# Argon2id-hash a login password you'll use to sign in
+docker run --rm python:3.12-slim sh -c \
+  'pip install -q argon2-cffi && python -c "from argon2 import PasswordHasher; print(PasswordHasher().hash(input(\"password: \")))"'
+# → paste the resulting hash as APP_PASSWORD_HASH in .env
+
+# Generate a session-cookie signing secret
+python3 -c 'import secrets; print(secrets.token_urlsafe(48))'
+# → paste as SESSION_SECRET in .env
+
+# Generate a strong Postgres password and write the docker-only env file
+cat > .env.docker <<EOF
+POSTGRES_USER=openstudy
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
+POSTGRES_DB=openstudy
+EOF
+chmod 600 .env .env.docker
 ```
 
-Before filling in the `.env` file, you'll need to generate two values:
+The other variables in `.env` are optional and document themselves —
+Telegram bot credentials, the internal API secret used by webhooks, the
+public URL the app advertises in OAuth flows.
+
+---
+
+## 4. Bring up the stack
 
 ```bash
-# Password hash for logging into the dashboard
-uv run python -m app.tools.hashpw 'pick-a-strong-password'
-# → paste the full $argon2id$... line into APP_PASSWORD_HASH
-
-# Random session-signing secret
-python -c 'import secrets; print(secrets.token_urlsafe(48))'   # or `py` on Windows
-# → paste into SESSION_SECRET
+./deploy.sh
 ```
 
-Minimum `.env` for local dev should look like this:
+`deploy.sh` does, in order:
 
-```ini
-SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-SUPABASE_SERVICE_KEY=eyJ...your-service-role-key...
-APP_PASSWORD_HASH=$argon2id$v=19$m=65536,t=3,p=4$...
-SESSION_SECRET=<48-char-random-string>
-CORS_ORIGINS=http://localhost:5173
-```
+1. Pre-flight (compose validation, disk space, env-file presence).
+2. Tags the currently running image as `openstudy:previous` so it can roll back.
+3. Builds a fresh `openstudy:latest` image from the `Dockerfile`.
+4. Starts the Postgres container, waits for `pg_isready`.
+5. Runs `scripts/run_migrations.py` against Postgres (idempotent — re-applies
+   nothing that's already been recorded in the `_migrations` table).
+6. Starts the PostgREST container, then the openstudy container.
+7. Polls `GET http://127.0.0.1:8000/api/health` for up to 60 s.
+8. **Pass:** prunes dangling images, exits 0.
+   **Fail:** re-tags `:previous` as `:latest`, recreates the container, waits
+   for the previous build's health to come back, exits non-zero.
 
-Also create `web/.env.local`:
-
-```ini
-VITE_API_BASE_URL=http://localhost:8000
-```
-
-## 4. Apply the migrations
-
-The SQL files under `supabase/migrations/` are the whole schema (courses, lectures, study topics, deliverables, tasks, OAuth tables, etc.). They get applied by the **Supabase CLI**, which tracks applied migrations in `supabase_migrations.schema_migrations` — so every subsequent push only runs what's new.
-
-**Primary path — `supabase db push`** (recommended, keeps the migration table clean):
+Verify:
 
 ```bash
-# Authenticate once, per machine:
-npx supabase login                                # opens browser
-
-# Link this checkout to your project (grab the project-ref from
-# supabase.com → Project Settings → General):
-npx supabase link --project-ref YOUR-PROJECT-REF
-
-# Apply every pending migration:
-npx supabase db push
+curl http://127.0.0.1:8000/api/health
+# → {"ok":true,"version":"...","db":"ok","storage":"ok ..."}
 ```
 
-On a fresh project this runs all five migrations in order and records them. On subsequent updates (e.g. after a `git pull` brings in a new migration file), re-running `npx supabase db push` applies only the new ones.
+You should also see three running containers (`openstudy`, `openstudy-postgres`,
+`openstudy-postgrest`) when you run `./deploy.sh --status`.
 
-> 💡 If you'd rather install the CLI globally instead of using `npx`:
-> `npm i -g supabase` and then drop the `npx` prefix.
+### Restoring data into a fresh box
 
-### Upgrading an existing DB (you previously ran migrations via the SQL editor)
-
-If you applied migrations manually before, Supabase doesn't yet know they're applied — a naive `db push` would try to re-run them and the `ALTER TABLE RENAME` in migration 5 would fail. Tell the CLI which ones are already in place:
+If you're moving from another deployment (or restoring a backup), apply
+your data dump after step 5 but before bringing up the openstudy container:
 
 ```bash
-npx supabase migration list                       # shows local vs. remote status
-# For every migration already applied to your DB, mark it applied:
-npx supabase migration repair --status applied 20260101000001
-npx supabase migration repair --status applied 20260115000001
-npx supabase migration repair --status applied 20260201000001
-npx supabase migration repair --status applied 20260301000001
-# Then push — only the truly-new ones run:
-npx supabase db push
+docker compose --env-file .env.docker up -d postgres
+docker compose --env-file .env.docker run --rm --no-deps openstudy \
+  uv run --no-sync python scripts/run_migrations.py
+docker exec -i openstudy-postgres psql -U openstudy -d openstudy < your-data.sql
+./deploy.sh --skip-build   # then continue with the normal deploy
 ```
 
-(If you don't remember which ones are already applied: `supabase migration list` shows a ✓ on the remote side for each one that the CLI *does* know about. Unmarked rows where the tables/columns already exist in your DB are the ones needing `repair --status applied`.)
+---
 
-### Fallback: dashboard SQL editor (no CLI)
+## 5. Build and serve the frontend
 
-If you'd rather not involve the CLI at all — or your Postgres isn't on Supabase — open the Supabase dashboard's **SQL Editor → New query**, then paste and run each file from `supabase/migrations/` in filename order:
+The frontend builds and runs as a container too — `./deploy.sh` already
+brought it up alongside the backend. It listens on `127.0.0.1:8080` and
+internally proxies API traffic to the openstudy container, so the rest
+of your stack only needs to talk to one port.
 
-1. `20260101000001_init.sql`
-2. `20260115000001_lectures.sql`
-3. `20260201000001_oauth.sql`
-4. `20260301000001_app_settings.sql`
-5. `20260420000001_english_canonical_kinds.sql`
+To customise the build (your domain in canonical/OG tags, your site
+name in the manifest), set these in `.env.docker` before deploying:
 
-Same result on the database; the `schema_migrations` table just won't track them.
+```
+PUBLIC_SITE_URL=https://your-domain.tld
+PUBLIC_SITE_NAME=Your Name
+PUBLIC_SHOW_LANDING=false
+```
 
-## 5. Run it locally
+Then `./deploy.sh` rebuilds the frontend image with your values baked in.
 
-Start the two servers in separate terminals:
+**For local frontend development** (Vite hot-reload, faster iteration):
 
 ```bash
-# Terminal 1 — backend
-uv run uvicorn app.main:app --reload
-# → http://localhost:8000/api/docs  (interactive API docs)
-
-# Terminal 2 — frontend
-cd web && pnpm dev
-# → http://localhost:5173
+cd web
+echo "VITE_API_BASE_URL=http://localhost:8000" > .env.local
+pnpm install
+pnpm dev    # → http://localhost:5173, hot-reloads against the dockerised backend
 ```
 
-Open `http://localhost:5173`, log in with the password you hashed. You'll see an empty dashboard with two CTAs: **Set up profile** and **Add your first course**. That's it — the rest of the UI and the MCP tools all create/read the same data from here.
+---
 
-## 6. Deploy to Vercel (or any hosting provider you prefer)
+## 6. Put it on a public domain
 
-Skip this section if you only want to use the dashboard on your own machine. Note: you won't have the ability to let your Claude do actions in your apps through the MCP, if you don't deploy the app to a public URL.  
+Required if you want Claude.ai or the Claude iOS app to reach the MCP
+endpoint. Skip for Claude-Code-only setups (`http://localhost:8080/mcp`
+works fine).
 
-The repo is pre-configured (`vercel.json`) to deploy both the static frontend and the Python API functions from one project.
+The example below uses **Caddy** because it's two lines for automatic TLS
+via Let's Encrypt. Nginx + Certbot, Traefik, anything else works the same way.
 
-1. Push your fork to GitHub.
-2. **vercel.com → Add New Project → import your fork**.
-3. Framework preset: **Other**. Leave the build command / output dir as-is.
-4. **Environment Variables** — add every backend var from your `.env`:
-   - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `APP_PASSWORD_HASH`, `SESSION_SECRET`
-   - `PUBLIC_URL` — **set this to `https://<your-project>.vercel.app`** (no trailing slash). The MCP OAuth flow uses this to build callback URLs.
-   - `CORS_ORIGINS` — same public URL.
-5. Deploy. First deploy takes 1–2 minutes.
-6. Visit your deployment URL, log in, set your profile + courses.
+`/etc/caddy/Caddyfile`:
 
-After the initial deploy, `git push origin main` auto-redeploys.
+```
+your-domain.tld {
+    encode gzip
+    reverse_proxy 127.0.0.1:8080 {
+        flush_interval -1   # required for /mcp Streamable HTTP
+    }
+}
+```
+
+That's it. The host's outer Caddy terminates TLS and hands everything off
+to the frontend container, which then routes static assets locally and
+backend traffic to the openstudy service on the internal docker network.
+
+Reload Caddy: `sudo systemctl reload caddy`. Visit `https://your-domain.tld`
+— TLS gets provisioned automatically on the first hit.
+
+---
 
 ## 7. Connect an MCP client
 
-The FastAPI app mounts a Streamable HTTP MCP endpoint at `/mcp`, OAuth-gated. **One endpoint, same tools for every client** — Claude.ai, Claude Code, the Claude phone app, anything else that speaks remote-HTTP MCP.
+The MCP endpoint is at `/mcp`, OAuth 2.1-protected. The same URL works
+across every Claude surface.
 
-Your endpoint URL is:
+### Claude.ai (browser + iOS)
 
-```
-https://<your-project>.vercel.app/mcp
-```
+Settings → Connectors → **Add custom connector** → paste
+`https://your-domain.tld/mcp` → complete the OAuth consent in the popup.
 
-Replace `<your-project>` with your own Vercel project name. (If you skipped deployment and only want to wire it into Claude Code locally, use `http://localhost:8000/mcp` instead — but Claude.ai and the Claude phone app can't reach `localhost`.)
-
-### Claude.ai (browser → also picked up by the Claude phone app)
-
-1. Go to **Settings → Connectors → Add custom connector** in claude.ai.
-2. Paste your endpoint URL (e.g. `https://your-project.vercel.app/mcp`).
-3. Claude redirects you to your dashboard's login — type your password, click **Authorize**.
-4. Toggle the connector on in whichever chats / Projects you want.
-5. Smoke test: ask Claude *"list my courses"*.
-
-Once added on claude.ai, the same connector appears in the **Claude phone app** automatically.
-
-### Claude Code CLI
+### Claude Code (local CLI)
 
 ```bash
 claude mcp add --transport http --scope user \
-  openstudy https://<your-project>.vercel.app/mcp
+  openstudy https://your-domain.tld/mcp
 ```
 
-`--scope user` makes the connector available in every directory you run `claude` from. The CLI opens your browser for the OAuth flow on first use; the token's cached in `~/.claude.json`.
-
-Smoke test inside `claude`: *"list my courses"*.
-
-### Verify the endpoint without a client
-
-The OAuth discovery endpoint is public — hitting it is a quick way to confirm the server is reachable and OAuth is wired up before you involve Claude at all:
+For development:
 
 ```bash
-curl -s https://<your-project>.vercel.app/.well-known/oauth-authorization-server | head -40
-# → should return JSON with `issuer`, `authorization_endpoint`, `token_endpoint`, etc.
+claude mcp add --transport http --scope user \
+  openstudy-local http://localhost:8000/mcp
 ```
 
-A 404 / 500 here means the deployment's wrong before we even get to auth — usually a missing `PUBLIC_URL` env var on Vercel.
+### Verify it works
 
-### Pair Claude.ai with a Project prompt
+From a Claude session: *"list my courses"*. The agent should call
+`mcp__openstudy__list_courses` and respond with whatever you've created.
 
-You get a much nicer experience if you paste a tailored system prompt into a Claude.ai **Project** alongside the connector — it tells Claude what your courses are, what "studied" means, when to ask vs. just act, etc. Template + worked example: [`docs/claude-ai-system-prompt.md`](./docs/claude-ai-system-prompt.md).
+---
 
-## Troubleshooting
+## 8. Day-2 operations
 
-**`401 invalid password` on login**
-Re-hash with `uv run python -m app.tools.hashpw 'your password'` and update `APP_PASSWORD_HASH`. If the password contains shell metacharacters, quote it as shown.
+### Deploying a change
 
-**Backend crashes with "no SUPABASE_URL" / "SUPABASE_SERVICE_KEY is empty"**
-The backend reads `.env` from the **working directory you run uvicorn from**, which should be the repo root. Check that `.env` exists there and has no stray quotes around values.
+```bash
+git pull
+./deploy.sh
+```
 
-**Weekly grid shows the wrong times**
-Your timezone isn't set. Go to **Settings → Semester** and set it to an IANA ID (`Europe/Berlin`, `America/New_York`, `Asia/Dubai`, etc.). The fall-behind logic, "today" marker, and relative times all key off this.
+That's it — the script handles build, migrate, health-check, and rollback.
 
-**MCP connector redirect fails ("invalid redirect_uri")**
-`PUBLIC_URL` is missing or doesn't match the domain Claude is redirecting back to. In Vercel, it must be `https://<your-project>.vercel.app` (no trailing slash, no extra path). Redeploy after changing env vars.
+If you only changed env vars (no code), use `--skip-build`:
 
-**Claude.ai says the connector timed out**
-Vercel Python functions cold-start slowly on the hobby tier (~2–5 s). The first MCP call after idle sometimes hits the timeout. Retry the same message.
+```bash
+./deploy.sh --skip-build
+```
 
-**The deployed app shows stale UI or stale data**
-Vercel auto-deploys on push to `main`. If the deploy is green on Vercel but the browser's stale, do a hard refresh (`Ctrl+Shift+R`) — the bundle is aggressively cached. Data: React Query refetches on window focus; or **Settings → Refresh data**.
+### Backups
 
-**I broke something and want a clean slate**
-In Supabase SQL Editor: `truncate table tasks, deliverables, study_topics, lectures, schedule_slots, klausuren, events, courses cascade;` keeps the schema + your `app_settings` row but empties all user data. Re-create courses from the UI.
+A daily systemd timer (or any cron equivalent) should:
+
+- `rsync /opt/courses/ → /opt/backup/<date>/courses/`
+- `docker exec openstudy-postgres pg_dump -U openstudy openstudy | gzip > /opt/backup/<date>/postgres.sql.gz`
+- Push `/opt/backup/` somewhere off-host (S3, Backblaze, your NAS) — the
+  whole point of a backup is surviving the box dying.
+
+### Migrations
+
+Add a new SQL file under `migrations/` with a timestamp greater than
+`00000000000000_baseline.sql`:
+
+```bash
+fn="migrations/$(date -u +%Y%m%d%H%M%S)_my_change.sql"
+cat > "$fn" <<'SQL'
+-- Describe the change
+alter table courses add column if not exists tagline text;
+SQL
+```
+
+Then `./deploy.sh` — the migration runs in a transaction, gets recorded
+in `_migrations` with its sha256, and any future re-run is a no-op.
+Files are immutable once recorded; if you need to amend, write a new
+migration.
+
+### Rolling back
+
+Routine rollback happens automatically when health fails. To roll back
+manually after a successful but unwanted deploy:
+
+```bash
+docker tag openstudy:previous openstudy:latest
+docker compose --env-file .env.docker up -d --force-recreate openstudy
+```
+
+### Updating the docker images
+
+```bash
+docker compose --env-file .env.docker pull   # postgres + postgrest
+./deploy.sh                                   # rebuilds openstudy
+```
+
+---
+
+## 9. Troubleshooting
+
+**`./deploy.sh` says "compose validation failed".**
+Run `docker compose --env-file .env.docker config` to see the error. Most
+common cause: `.env.docker` missing a key, or compose version below 2.30.
+
+**`/api/health` returns `{"ok": false, "db": "error: ..."}`.**
+The FastAPI container can't reach Postgres. Check `docker logs openstudy-postgres`
+for boot errors; verify the values in `.env.docker` match what's in
+`/opt/postgres-data/` (the directory persists between runs — if you
+changed the password after first boot, Postgres is still using the old one).
+
+**`/api/health` returns `{"ok": false, "storage": "error: ..."}`.**
+The bind-mount for `/opt/courses` failed. Check the path exists on the host
+and is readable by the container. `docker exec openstudy ls /opt/courses`
+should show your course tree.
+
+**Login returns 401 with the right password.**
+Re-hash the password and update `APP_PASSWORD_HASH` in `.env`. Common
+gotcha: the hash starts with `$argon2id$…` — those `$` characters are
+literal, not env interpolation. The compose `env_file: format: raw`
+directive prevents mangling, but if you've manually exported the variable
+in a shell, the `$` chars need to be single-quoted.
+
+**MCP returns 401 from a Claude client.**
+The OAuth token cached by the client expired or was revoked. Reconnect:
+in claude.ai disconnect and re-add the connector; in Claude Code run
+`/mcp` and re-authenticate openstudy.

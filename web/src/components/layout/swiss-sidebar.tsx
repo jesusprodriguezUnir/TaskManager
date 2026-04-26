@@ -7,6 +7,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAppSettings, useCourses } from "@/lib/queries";
+import { Wordmark } from "@/components/brand/wordmark";
 
 function cv(code: string) { return `var(--course-${code.toLowerCase()})`; }
 function pad(n: number) { return String(n).padStart(2, "0"); }
@@ -67,23 +68,23 @@ export function SwissSidebar() {
       <div className="s-sect">
         {t("nav.pages")} <span>{pad(1)}–{pad(5)}</span>
       </div>
-      <SLink to="/" end>
+      <SLink to="/app" end>
         <span className="s-n">01</span>
         <span>{t("nav.today")}</span>
       </SLink>
-      <SLink to="/courses" end>
+      <SLink to="/app/courses" end>
         <span className="s-n">02</span>
         <span>{t("nav.courses")}</span>
       </SLink>
-      <SLink to="/tasks">
+      <SLink to="/app/tasks">
         <span className="s-n">03</span>
         <span>{t("nav.tasks")}</span>
       </SLink>
-      <SLink to="/exams">
+      <SLink to="/app/exams">
         <span className="s-n">04</span>
         <span>{t("nav.exams")}</span>
       </SLink>
-      <SLink to="/files">
+      <SLink to="/app/files">
         <span className="s-n">05</span>
         <span>{t("nav.files")}</span>
       </SLink>
@@ -96,7 +97,7 @@ export function SwissSidebar() {
         return (
           <SLink
             key={c.code}
-            to={`/courses/${c.code}`}
+            to={`/app/courses/${c.code}`}
             className="s-course"
             style={{ "--accent": cv(c.code) } as CSSProperties}
           >
@@ -115,14 +116,27 @@ export function SwissSidebar() {
       <div className="s-sect">
         {t("nav.archive")} <span>02</span>
       </div>
-      <SLink to="/activity">
+      <SLink to="/app/activity">
         <span className="s-n">06</span>
         <span>{t("nav.activity")}</span>
       </SLink>
-      <SLink to="/settings">
+      <SLink to="/app/settings">
         <span className="s-n">07</span>
         <span>{t("nav.settings")}</span>
       </SLink>
+
+      <div
+        style={{
+          marginTop: "auto",
+          paddingTop: 24,
+          paddingBottom: 8,
+          display: "flex",
+          justifyContent: "center",
+          opacity: 0.4,
+        }}
+      >
+        <Wordmark style={{ height: 18, width: "auto" }} />
+      </div>
     </aside>
   );
 }

@@ -1,184 +1,251 @@
-"""Thin Supabase Storage client (REST API).
+"""Filesystem-backed storage layer.
 
-We don't use the `supabase` package because it blows past Vercel's serverless
-limit. The Storage REST API is small and stable — a handful of httpx calls.
+Course materials live as plain files under `STUDY_ROOT` (defaults to
+`/opt/courses`). All read/write/list/move/delete operations in the app
+funnel through this module.
 
-Every operation emits an event so the Activity page shows everything that
-touches the bucket (MCP tool calls, web uploads, signed-URL mints, syncs).
+`list_files` returns `{name, id, updated_at, metadata: {size, mimetype}}`
+per entry, with `id=None` marking folders so the UI can distinguish them
+without a second stat.
+
+Every operation emits an `events` row so the Activity page shows
+everything that touches the course tree (MCP tool calls, web uploads,
+periodic syncs).
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+import logging
+import mimetypes
+import os
+import shutil
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+from urllib.parse import quote
 
-import httpx
-
-from ..config import get_settings
+log = logging.getLogger(__name__)
 
 
-BUCKET = "course_files"
+def _root() -> Path:
+    return Path(os.environ.get("STUDY_ROOT", "/opt/courses"))
+
+
+def _safe_resolve(rel: str) -> Path:
+    """Join `rel` under STUDY_ROOT, refusing escape via `..` or absolute path.
+    Returns the absolute path. Raises ValueError on traversal attempt."""
+    root = _root().resolve()
+    rel = (rel or "").lstrip("/")
+    target = (root / rel).resolve()
+    if root != target and root not in target.parents:
+        raise ValueError(f"path escapes STUDY_ROOT: {rel!r}")
+    return target
 
 
 def _log(kind: str, payload: dict[str, Any]) -> None:
-    """Best-effort event log. Import `db` lazily to avoid circular imports
-    (db/postgrest doesn't depend on this module, but the storage module is
-    called from many places and we don't want a DB blip to break uploads)."""
+    """Best-effort event log. Lazy import of db to avoid circular imports
+    and to never break a storage op when the DB is having a moment."""
     try:
-        from ..db import supabase
+        from ..db import client
 
-        supabase().table("events").insert(
+        client().table("events").insert(
             {"kind": kind, "payload": payload}
         ).execute()
     except Exception:
         pass
 
 
-def _base_url() -> str:
-    return get_settings().supabase_url.rstrip("/") + "/storage/v1"
+def _mtime_iso(p: Path) -> str:
+    return datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc).isoformat()
 
 
-def _headers() -> dict[str, str]:
-    key = get_settings().supabase_service_key
-    return {
-        "apikey": key,
-        "Authorization": f"Bearer {key}",
-    }
+# ── Read ─────────────────────────────────────────────────────────────────────
 
 
 def list_files(prefix: str = "", *, limit: int = 200) -> list[dict[str, Any]]:
-    """List objects under an optional path prefix. Returns Supabase's raw
-    metadata shape: {name, id, updated_at, created_at, last_accessed_at,
-    metadata: {size, mimetype, ...}}."""
-    resp = httpx.post(
-        f"{_base_url()}/object/list/{BUCKET}",
-        headers={**_headers(), "Content-Type": "application/json"},
-        json={
-            "prefix": prefix,
-            "limit": limit,
-            "offset": 0,
-            "sortBy": {"column": "name", "order": "asc"},
-        },
-        timeout=15.0,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    _log("storage:list", {"prefix": prefix, "count": len(data)})
-    return data
+    """List entries (folders + files) at the given prefix. Non-recursive.
 
+    Each entry: `{name, id, updated_at, metadata: {size, mimetype}}`.
+    Folders are returned with `id=None` and `metadata=None` so the caller
+    can distinguish them from files without an extra stat call. Dotfiles
+    (anything starting with `.`) are filtered out of listings.
+    """
+    try:
+        base = _safe_resolve(prefix)
+    except ValueError:
+        return []
+    if not base.exists() or not base.is_dir():
+        return []
 
-def download(path: str) -> bytes:
-    """Download a file's raw bytes."""
-    resp = httpx.get(
-        f"{_base_url()}/object/{BUCKET}/{path}",
-        headers=_headers(),
-        timeout=30.0,
-    )
-    resp.raise_for_status()
-    _log("storage:read", {"path": path, "size": len(resp.content)})
-    return resp.content
+    out: list[dict[str, Any]] = []
+    try:
+        entries = sorted(
+            (p for p in base.iterdir() if not p.name.startswith(".")),
+            key=lambda p: p.name.lower(),
+        )
+    except OSError:
+        return []
 
+    for child in entries[:limit]:
+        if child.is_dir():
+            out.append({
+                "name": child.name,
+                "id": None,
+                "updated_at": _mtime_iso(child),
+                "metadata": None,
+            })
+        else:
+            mime, _ = mimetypes.guess_type(child.name)
+            out.append({
+                "name": child.name,
+                "id": str(child.stat().st_ino),
+                "updated_at": _mtime_iso(child),
+                "metadata": {
+                    "size": child.stat().st_size,
+                    "mimetype": mime or "application/octet-stream",
+                },
+            })
 
-def upload(path: str, data: bytes, content_type: str = "application/octet-stream") -> dict[str, Any]:
-    """Upload (or replace) a file at `path`."""
-    resp = httpx.post(
-        f"{_base_url()}/object/{BUCKET}/{path}",
-        headers={**_headers(), "Content-Type": content_type, "x-upsert": "true"},
-        content=data,
-        timeout=60.0,
-    )
-    resp.raise_for_status()
-    _log(
-        "storage:upload",
-        {"path": path, "size": len(data), "content_type": content_type},
-    )
-    return resp.json()
-
-
-def delete(paths: list[str]) -> dict[str, Any]:
-    """Delete one or more files."""
-    resp = httpx.request(
-        "DELETE",
-        f"{_base_url()}/object/{BUCKET}",
-        headers={**_headers(), "Content-Type": "application/json"},
-        json={"prefixes": paths},
-        timeout=15.0,
-    )
-    resp.raise_for_status()
-    _log("storage:delete", {"paths": paths, "count": len(paths)})
-    return resp.json()
-
-
-def exists(path: str) -> bool:
-    resp = httpx.head(
-        f"{_base_url()}/object/{BUCKET}/{path}",
-        headers=_headers(),
-        timeout=15.0,
-    )
-    return resp.status_code == 200
-
-
-def signed_url(path: str, expires_in: int = 3600) -> str:
-    resp = httpx.post(
-        f"{_base_url()}/object/sign/{BUCKET}/{path}",
-        headers={**_headers(), "Content-Type": "application/json"},
-        json={"expiresIn": expires_in},
-        timeout=15.0,
-    )
-    resp.raise_for_status()
-    token = resp.json()["signedURL"]
-    # signedURL starts with /object/sign/...
-    full = f"{_base_url()}{token}"
-    _log("storage:sign", {"path": path, "expires_in": expires_in})
-    return full
-
-
-def signed_upload_url(path: str) -> dict[str, Any]:
-    """Mint a single-use URL the browser can PUT a file to directly.
-    Returns {url, token, path}."""
-    resp = httpx.post(
-        f"{_base_url()}/object/upload/sign/{BUCKET}/{path}",
-        headers=_headers(),
-        timeout=15.0,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    rel = data.get("url", "")
-    full = f"{_base_url()}{rel}" if rel.startswith("/") else rel
-    _log("storage:sign:upload", {"path": path})
-    return {"url": full, "token": data.get("token"), "path": path}
-
-
-def move(source: str, destination: str) -> dict[str, Any]:
-    """Rename / move an object server-side (no download/re-upload)."""
-    resp = httpx.post(
-        f"{_base_url()}/object/move",
-        headers={**_headers(), "Content-Type": "application/json"},
-        json={
-            "bucketId": BUCKET,
-            "sourceKey": source,
-            "destinationKey": destination,
-        },
-        timeout=30.0,
-    )
-    resp.raise_for_status()
-    _log("storage:move", {"from": source, "to": destination})
-    return resp.json()
+    _log("storage:list", {"prefix": prefix, "count": len(out)})
+    return out
 
 
 def list_recursive(prefix: str) -> list[str]:
-    """Return every object path under `prefix`, descending into subfolders.
-    Used for recursive folder operations (delete, rename)."""
+    """Return every file path (relative to STUDY_ROOT) under `prefix`,
+    descending into subfolders. Skips dotfiles."""
+    try:
+        base = _safe_resolve(prefix)
+    except ValueError:
+        return []
+    if not base.exists() or not base.is_dir():
+        return []
+    root = _root().resolve()
     out: list[str] = []
-    stack: list[str] = [prefix.strip("/")]
-    while stack:
-        cur = stack.pop()
-        entries = list_files(prefix=cur, limit=1000)
-        for e in entries:
-            name = e.get("name") or ""
-            if not name:
-                continue
-            child = f"{cur}/{name}" if cur else name
-            if e.get("id") is None:
-                stack.append(child)
-            else:
-                out.append(child)
+    for p in base.rglob("*"):
+        if p.is_file() and not any(part.startswith(".") for part in p.relative_to(root).parts):
+            out.append(str(p.relative_to(root)).replace(os.sep, "/"))
+    out.sort()
     return out
+
+
+def download(path: str) -> bytes:
+    """Return raw bytes of a file."""
+    target = _safe_resolve(path)
+    if not target.is_file():
+        raise FileNotFoundError(f"not found: {path}")
+    data = target.read_bytes()
+    _log("storage:read", {"path": path, "size": len(data)})
+    return data
+
+
+def exists(path: str) -> bool:
+    try:
+        return _safe_resolve(path).is_file()
+    except ValueError:
+        return False
+
+
+def stat(path: str) -> dict[str, Any] | None:
+    """Return file metadata or None if the path doesn't exist."""
+    try:
+        target = _safe_resolve(path)
+    except ValueError:
+        return None
+    if not target.is_file():
+        return None
+    mime, _ = mimetypes.guess_type(target.name)
+    return {
+        "path": path,
+        "size": target.stat().st_size,
+        "mimetype": mime or "application/octet-stream",
+        "updated_at": _mtime_iso(target),
+    }
+
+
+# ── Write ────────────────────────────────────────────────────────────────────
+
+
+def upload(path: str, data: bytes, content_type: str = "application/octet-stream") -> dict[str, Any]:
+    """Write (or overwrite) a file. Atomic via tmp+rename within the same dir."""
+    target = _safe_resolve(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(target.suffix + f".tmp-{os.getpid()}")
+    try:
+        tmp.write_bytes(data)
+        os.replace(tmp, target)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+    _log("storage:upload", {"path": path, "size": len(data), "content_type": content_type})
+    return {"path": path, "size": len(data), "content_type": content_type}
+
+
+def delete(paths: list[str]) -> dict[str, Any]:
+    """Delete one or more files. Missing paths are silently OK (idempotent)."""
+    deleted: list[str] = []
+    for p in paths:
+        try:
+            target = _safe_resolve(p)
+        except ValueError:
+            continue
+        if target.is_file():
+            try:
+                target.unlink()
+                deleted.append(p)
+            except OSError as e:
+                log.warning("delete failed for %s: %s", p, e)
+        elif target.is_dir():
+            # safety: only allow rmtree on empty dirs here; recursive deletes
+            # come through delete folder via the router which lists first.
+            try:
+                target.rmdir()
+                deleted.append(p)
+            except OSError:
+                pass
+    _log("storage:delete", {"paths": paths, "count": len(deleted)})
+    return {"deleted": deleted}
+
+
+def signed_url(path: str, expires_in: int = 3600) -> str:
+    """Return an in-app URL the browser can fetch the file from.
+
+    Same-origin path that hits `GET /api/files/raw`, which streams the
+    file under session-cookie auth. The `expires_in` parameter is part
+    of the API surface for parity with externally signed URLs but isn't
+    enforced here — the session cookie is the auth token.
+    """
+    if not exists(path):
+        raise FileNotFoundError(f"not found: {path}")
+    _log("storage:sign", {"path": path, "expires_in": expires_in})
+    return f"/api/files/raw?path={quote(path, safe='/')}"
+
+
+def signed_upload_url(path: str) -> dict[str, Any]:
+    """Return a URL the browser can PUT the file body to.
+
+    Two-step uploads: the JSON endpoint at `POST /api/files/upload-url`
+    calls this to mint the target URL; the browser then PUTs the body
+    there, which lands in `/api/files/upload-target` and persists it
+    via `upload()`.
+    """
+    _log("storage:sign:upload", {"path": path})
+    return {
+        "url": f"/api/files/upload-target?path={quote(path, safe='/')}",
+        "token": None,
+        "path": path,
+    }
+
+
+def move(source: str, destination: str) -> dict[str, Any]:
+    """Rename or move a file. Cross-directory moves work as long as both
+    sides are under STUDY_ROOT."""
+    src = _safe_resolve(source)
+    dst = _safe_resolve(destination)
+    if not src.exists():
+        raise FileNotFoundError(f"source not found: {source}")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(dst))
+    _log("storage:move", {"from": source, "to": destination})
+    return {"from": source, "to": destination}

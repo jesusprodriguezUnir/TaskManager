@@ -2,7 +2,7 @@
 
 Run:
   uv run python -m app.tools.hashpw
-Then paste the output into your .env / Vercel env var.
+Then paste the output into your .env.
 """
 import sys
 import getpass

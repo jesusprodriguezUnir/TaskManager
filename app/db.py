@@ -1,8 +1,11 @@
-"""Thin Postgres client via PostgREST (Supabase's data-plane HTTP interface).
+"""Thin Postgres client via PostgREST.
 
-We use `postgrest-py` directly instead of the full `supabase` package because
-the latter pulls in storage/auth/functions/pyiceberg etc. and blows past
-Vercel's 250MB serverless function limit.
+PostgREST is the data-plane HTTP interface in front of Postgres. By default
+the FastAPI talks to a local PostgREST container at `http://postgrest:3000`
+(see `docker-compose.yml`). Configurable via `POSTGREST_URL` and
+`POSTGREST_API_KEY` env vars.
+
+Use as: `from app.db import client; client().table("courses").select(...)`.
 """
 from functools import lru_cache
 from postgrest import SyncPostgrestClient
@@ -10,26 +13,29 @@ from .config import get_settings
 
 
 @lru_cache
-def supabase() -> "_Client":
+def client() -> "_Client":
     s = get_settings()
-    if not s.supabase_url or not s.supabase_service_key:
-        raise RuntimeError(
-            "SUPABASE_URL and SUPABASE_SERVICE_KEY must be set. "
-            "Copy .env.example to .env and fill them in."
-        )
-    rest_url = s.supabase_url.rstrip("/") + "/rest/v1"
-    client = SyncPostgrestClient(
-        rest_url,
-        headers={
-            "apikey": s.supabase_service_key,
-            "Authorization": f"Bearer {s.supabase_service_key}",
-        },
-    )
-    return _Client(client)
+    if not s.postgrest_url:
+        raise RuntimeError("POSTGREST_URL must be set.")
+    # Use URL as-is; the env should already include any path suffix needed.
+    rest_url = s.postgrest_url.rstrip("/")
+    headers: dict[str, str] = {}
+    if s.postgrest_auth:
+        if not s.postgrest_api_key:
+            raise RuntimeError(
+                "POSTGREST_API_KEY required when POSTGREST_AUTH=true."
+            )
+        headers = {
+            "apikey": s.postgrest_api_key,
+            "Authorization": f"Bearer {s.postgrest_api_key}",
+        }
+    pg = SyncPostgrestClient(rest_url, headers=headers)
+    return _Client(pg)
 
 
 class _Client:
-    """Shim that exposes the same `.table(name)` API the existing services use."""
+    """Shim exposing the same `.table(name)` / `.rpc(name, params)` API the
+    existing services use."""
 
     def __init__(self, pg: SyncPostgrestClient):
         self._pg = pg

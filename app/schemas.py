@@ -1,4 +1,4 @@
-"""Pydantic models mirroring the database schema (see supabase/migrations/).
+"""Pydantic models mirroring the database schema (see migrations/).
 
 Enum values are English-canonical. German values from legacy data or old MCP
 integrations are accepted on input and normalized at validation time — see the
@@ -364,10 +364,21 @@ class DashboardSummary(BaseModel):
 # ---------- Auth ----------
 class LoginRequest(BaseModel):
     password: str
+    totp_code: Optional[str] = None
 
 
 class SessionInfo(BaseModel):
     authed: bool
+    totp_enabled: bool = False
+
+
+class TotpSetupResponse(BaseModel):
+    secret: str            # raw base32 secret to enter manually if QR fails
+    provisioning_uri: str  # otpauth:// URI to render as a QR
+
+
+class TotpVerifyRequest(BaseModel):
+    code: str
 
 
 # ---------- Bulk lecture helper ----------

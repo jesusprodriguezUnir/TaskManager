@@ -344,7 +344,7 @@ export function ZineDashboard() {
             return (
               <Link
                 key={c.code}
-                to={`/courses/${c.code}`}
+                to={`/app/courses/${c.code}`}
                 className="z-ccard"
                 style={{ "--accent": cv(c.code) } as React.CSSProperties}
               >
@@ -464,7 +464,7 @@ function ZineWeek({
               .filter((s) => s.weekday === day.i)
               .map((s) => (
                 <Link key={s.id}
-                     to={`/courses/${s.course_code}?tab=schedule`}
+                     to={`/app/courses/${s.course_code}?tab=schedule`}
                      className="z-wblk"
                      style={{
                        top: toTop(s.start_time.slice(0, 5)),
@@ -509,7 +509,7 @@ function ZineDeadlines({
         const t = new Date(d.due_at);
         const abs = `${pad(t.getDate())} ${t.toLocaleDateString(localeCode, { month: "short" }).toUpperCase()} · ${pad(t.getHours())}:${pad(t.getMinutes())}`;
         return (
-          <div key={d.id} className="z-drow" onClick={() => navigate(`/courses/${d.course_code}`)}>
+          <div key={d.id} className="z-drow" onClick={() => navigate(`/app/courses/${d.course_code}`)}>
             <span className="z-stickerc" style={{ "--accent": cv(d.course_code) } as React.CSSProperties}>
               {d.course_code}
             </span>

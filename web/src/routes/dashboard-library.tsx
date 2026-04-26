@@ -285,7 +285,7 @@ export function LibraryDashboard() {
           return (
             <Link
               key={c.code}
-              to={`/courses/${c.code}`}
+              to={`/app/courses/${c.code}`}
               className="l-platecard"
               data-plate={ROMAN_UPPER[i] ?? String(i + 1)}
               style={{ "--accent": cv(c.code) } as React.CSSProperties}
@@ -400,7 +400,7 @@ function LibraryTableau({
               .filter((s) => s.weekday === day.i)
               .map((s) => (
                 <Link key={s.id}
-                     to={`/courses/${s.course_code}?tab=schedule`}
+                     to={`/app/courses/${s.course_code}?tab=schedule`}
                      className="l-event"
                      style={{
                        top: toTop(s.start_time.slice(0, 5)),
@@ -447,7 +447,7 @@ function LibraryDeadlines({
         const dt = new Date(d.due_at);
         const abs = `${pad(dt.getDate())} ${dt.toLocaleDateString(localeCode, { month: "short" })} · ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
         return (
-          <div key={d.id} className="l-ledrow" onClick={() => navigate(`/courses/${d.course_code}`)}>
+          <div key={d.id} className="l-ledrow" onClick={() => navigate(`/app/courses/${d.course_code}`)}>
             <span className="l-rnn">{ROMAN_LOWER[i] ?? String(i + 1)}.</span>
             <span className="l-sealc" style={{ "--accent": cv(d.course_code) } as React.CSSProperties}>
               {d.course_code}

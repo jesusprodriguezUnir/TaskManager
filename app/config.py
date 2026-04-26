@@ -11,9 +11,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Supabase
-    supabase_url: str = Field(default="")
-    supabase_service_key: str = Field(default="")
+    # PostgREST (the data-plane HTTP layer in front of Postgres).
+    postgrest_url: str = Field(default="")
+    postgrest_api_key: str = Field(default="")
+    # When true (default), send `apikey` + `Authorization: Bearer …` to
+    # PostgREST — required when PostgREST validates JWTs. Set to false when
+    # JWT auth is disabled on the PostgREST side; otherwise a non-JWT
+    # bearer value triggers a 500.
+    postgrest_auth: bool = Field(default=True)
 
     # Auth
     app_password_hash: str = Field(default="")
@@ -21,7 +26,7 @@ class Settings(BaseSettings):
     session_ttl_days: int = 30
 
     # Public origin (scheme+host, no trailing slash) — required for OAuth/MCP URLs.
-    # In prod, set to the Vercel URL. In dev, leave blank and we'll derive from the request.
+    # In prod, set to your public origin (e.g. https://openstudy.dev).
     public_url: str = ""
 
     # CORS — comma-separated

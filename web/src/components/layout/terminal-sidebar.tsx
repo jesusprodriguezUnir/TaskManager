@@ -7,6 +7,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAppSettings, useCourses, useDashboard } from "@/lib/queries";
+import { Wordmark } from "@/components/brand/wordmark";
 
 function courseVar(code: string) {
   return `var(--course-${code.toLowerCase()})`;
@@ -114,23 +115,23 @@ export function TerminalSidebar() {
       <div className="tm-nav-body">
         <div className="tm-nav-label">{t("nav.sections").toUpperCase()}</div>
 
-        <TmLink to="/" end>
+        <TmLink to="/app" end>
           <span className="tm-ic"><Icon name="home" /></span>
           <span>{t("nav.today").toLowerCase()}</span>
         </TmLink>
-        <TmLink to="/courses" end>
+        <TmLink to="/app/courses" end>
           <span className="tm-ic"><Icon name="book" /></span>
           <span>{t("nav.courses").toLowerCase()}</span>
         </TmLink>
-        <TmLink to="/tasks">
+        <TmLink to="/app/tasks">
           <span className="tm-ic"><Icon name="inbox" /></span>
           <span>{t("nav.tasks").toLowerCase()}</span>
         </TmLink>
-        <TmLink to="/exams">
+        <TmLink to="/app/exams">
           <span className="tm-ic"><Icon name="flask" /></span>
           <span>{t("nav.exams").toLowerCase()}</span>
         </TmLink>
-        <TmLink to="/files">
+        <TmLink to="/app/files">
           <span className="tm-ic"><Icon name="folder" /></span>
           <span>{t("nav.files").toLowerCase()}</span>
         </TmLink>
@@ -142,7 +143,7 @@ export function TerminalSidebar() {
           return (
             <TmLink
               key={c.code}
-              to={`/courses/${c.code}`}
+              to={`/app/courses/${c.code}`}
               className="tm-nav-item tm-course"
               style={{ "--accent": courseVar(c.code) } as CSSProperties}
             >
@@ -155,16 +156,28 @@ export function TerminalSidebar() {
         })}
 
         <div className="tm-nav-label">{t("nav.archive").toUpperCase()}</div>
-        <TmLink to="/activity">
+        <TmLink to="/app/activity">
           <span className="tm-ic"><Icon name="pulse" /></span>
           <span>{t("nav.activity").toLowerCase()}</span>
         </TmLink>
-        <TmLink to="/settings">
+        <TmLink to="/app/settings">
           <span className="tm-ic"><Icon name="cog" /></span>
           <span>{t("nav.settings").toLowerCase()}</span>
         </TmLink>
       </div>
 
+      <div
+        style={{
+          marginTop: "auto",
+          paddingTop: 18,
+          paddingBottom: 10,
+          display: "flex",
+          justifyContent: "center",
+          opacity: 0.4,
+        }}
+      >
+        <Wordmark style={{ height: 18, width: "auto" }} />
+      </div>
     </aside>
   );
 }

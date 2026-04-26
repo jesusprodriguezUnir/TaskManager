@@ -49,7 +49,7 @@ export default function Exams() {
               return (
                 <Link
                   key={c.code}
-                  to={`/courses/${c.code}`}
+                  to={`/app/courses/${c.code}`}
                   className="card overflow-hidden hover:bg-surface-2 focus-visible:bg-surface-2 transition-colors"
                 >
                   <CourseAccentBar code={c.code} />

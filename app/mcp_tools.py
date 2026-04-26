@@ -156,7 +156,7 @@ def register_tools(server: FastMCP) -> None:
 
         `color_hex` (e.g. '#7ab8ff') is the accent stripe shown in the UI;
         pick something visually distinct from existing courses. `folder_name`
-        is the Supabase Storage folder where the course's PDFs / notes live —
+        is the folder under `/opt/courses/` where the course's PDFs / notes live —
         match it to whatever folder the user keeps locally if they sync
         files.
 
@@ -936,11 +936,11 @@ def register_tools(server: FastMCP) -> None:
         now = datetime.now(tz=tz)
         return {"iso": now.isoformat(), "utc_iso": now.astimezone(timezone.utc).isoformat()}
 
-    # ─────────────────────── Course files (Supabase Storage) ─────────
+    # ─────────────────────── Course files (filesystem under /opt/courses) ─────────
 
     @server.tool()
     def list_course_files(prefix: str = "", limit: int = 200) -> list[dict]:
-        """Browse the course_files bucket — the user's course PDFs, notes,
+        """Browse the course tree on disk — the user's course PDFs, notes,
         slides, etc. Structure typically mirrors a local per-course folder
         layout.
 
@@ -948,7 +948,7 @@ def register_tools(server: FastMCP) -> None:
         - prefix='<course-folder>' → files + subfolders one level deep.
         - prefix='<course-folder>/Week1' → files in that week's folder.
 
-        Supabase Storage's list is NOT recursive — drill down by passing a
+        The list is NOT recursive — drill down by passing a
         folder's path as the next prefix.
 
         Each entry: {name, path, type}. type='folder' or 'file'. Files also
@@ -981,7 +981,7 @@ def register_tools(server: FastMCP) -> None:
 
     @server.tool()
     def read_course_file(path: str, pages: str = "1-20") -> list:
-        """Read a file from the course_files bucket. Auto-detects by extension:
+        """Read a file from the course tree on disk. Auto-detects by extension:
           - .md / .txt → plain text
           - .ipynb     → parsed notebook (cells inline as text)
           - .pdf       → requested page range rendered as PNG images (multimodal)
@@ -1039,6 +1039,53 @@ def register_tools(server: FastMCP) -> None:
             f"Unsupported file type `.{ext}`. "
             f"Supported: .pdf, .md, .txt, .ipynb, .png, .jpg, .jpeg, .webp"
         ]
+
+    @server.tool()
+    def notify_telegram(text: str, parse_mode: str | None = None) -> dict:
+        """Send a Telegram message to the operator's pre-configured chat.
+
+        Used by background agents that can't reach the Telegram API directly
+        from their runtime — they call this server-side tool and the backend
+        (unrestricted egress) forwards the message.
+
+        Pass ``parse_mode="HTML"`` for ``<b>``, ``<i>``, ``<code>`` and
+        ``<a href="...">`` formatting (only ``<``, ``>``, ``&`` need
+        escaping as ``&lt; &gt; &amp;``). HTML is preferred over Markdown
+        because the escape rules are simpler. Omit ``parse_mode`` for
+        plain text.
+
+        Configured via ``TELEGRAM_BOT_TOKEN`` and ``TELEGRAM_CHAT_ID`` on the
+        server. Returns ``{"ok": True, "message_id": <int>}`` on success or
+        ``{"ok": False, "error": "<reason>"}`` on failure.
+        """
+        import os
+        import httpx
+
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+        if not token or not chat_id:
+            return {"ok": False, "error": "TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID not configured"}
+        if not text or not text.strip():
+            return {"ok": False, "error": "empty text"}
+        payload: dict = {
+            "chat_id": int(chat_id),
+            "text": text,
+            "disable_web_page_preview": True,
+        }
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+        try:
+            resp = httpx.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json=payload,
+                timeout=15.0,
+            )
+            data = resp.json()
+            if not data.get("ok"):
+                return {"ok": False, "error": str(data)}
+            return {"ok": True, "message_id": data["result"]["message_id"]}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
 
     # Keep a reference so fb_svc is not flagged as unused (services/dashboard.py re-exports it).
     _ = fb_svc

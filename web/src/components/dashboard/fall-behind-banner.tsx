@@ -87,7 +87,7 @@ function BehindRow({ item }: { item: FallBehindItem }) {
   const code = item.course_code as CourseCode;
   return (
     <Link
-      to={`/courses/${code}`}
+      to={`/app/courses/${code}`}
       className="flex items-center gap-2.5 text-[13px] text-fg-dim px-2.5 py-1.5 rounded-md bg-[color-mix(in_oklch,var(--fg)_2%,transparent)] border border-hairline hover:bg-surface-2 transition-colors min-w-0"
       style={{ ["--accent" as string]: courseAccentVar(code) } as CSSProperties}
     >

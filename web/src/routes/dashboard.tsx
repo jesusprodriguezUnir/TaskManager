@@ -383,13 +383,13 @@ function EmptyDashboard() {
       </div>
       <div className="flex flex-wrap gap-2 justify-center">
         <Link
-          to="/courses"
+          to="/app/courses"
           className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors bg-primary text-primary-fg hover:bg-primary/90 h-10 px-4 text-sm touch-target"
         >
           Add your first course
         </Link>
         <Link
-          to="/settings"
+          to="/app/settings"
           className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors bg-transparent text-fg hover:bg-surface-2 h-10 px-4 text-sm touch-target"
         >
           Set up profile

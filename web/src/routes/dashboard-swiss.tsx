@@ -258,7 +258,7 @@ export function SwissDashboard() {
         return (
           <Link
             key={c.code}
-            to={`/courses/${c.code}`}
+            to={`/app/courses/${c.code}`}
             className="s-c-3 s-course-card"
             style={{ "--accent": cv(c.code) } as React.CSSProperties}
           >
@@ -362,7 +362,7 @@ function SwissSchedule({
               .filter((s) => s.weekday === day.i)
               .map((s) => (
                 <Link key={s.id}
-                  to={`/courses/${s.course_code}?tab=schedule`}
+                  to={`/app/courses/${s.course_code}?tab=schedule`}
                   className="s-evt"
                   style={{
                     top: toTop(s.start_time.slice(0, 5)),
@@ -405,7 +405,7 @@ function SwissDeadlines({
         return (
           <div key={d.id} className="s-lr"
             style={{ "--accent": cv(d.course_code) } as React.CSSProperties}
-            onClick={() => navigate(`/courses/${d.course_code}`)}>
+            onClick={() => navigate(`/app/courses/${d.course_code}`)}>
             <span className="s-num">{pad(i + 1)}</span>
             <span className="s-cc">{d.course_code}</span>
             <div style={{ minWidth: 0 }}>

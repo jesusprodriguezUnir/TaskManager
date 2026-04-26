@@ -1,4 +1,4 @@
-"""OAuth 2.1 authorization server storage helpers (Supabase-backed).
+"""OAuth 2.1 authorization server storage helpers (Postgres-backed).
 
 Single-user personal server: the only "user" is the deploy owner, authenticated
 via the existing dashboard password cookie during the consent step. We don't
@@ -12,7 +12,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from ..db import supabase
+from ..db import client
 
 
 AUTH_CODE_TTL_SEC = 600  # 10 min
@@ -43,7 +43,7 @@ def create_client(
     client_id = _gen(16)
     client_secret = None if public else _gen(32)
     resp = (
-        supabase()
+        client()
         .table("oauth_clients")
         .insert(
             {
@@ -61,7 +61,7 @@ def create_client(
 
 def get_client(client_id: str) -> Optional[dict[str, Any]]:
     resp = (
-        supabase()
+        client()
         .table("oauth_clients")
         .select("*")
         .eq("client_id", client_id)
@@ -83,7 +83,7 @@ def create_auth_code(
 ) -> str:
     code = _gen(32)
     expires_at = (_now() + timedelta(seconds=AUTH_CODE_TTL_SEC)).isoformat()
-    supabase().table("oauth_auth_codes").insert(
+    client().table("oauth_auth_codes").insert(
         {
             "code": code,
             "client_id": client_id,
@@ -102,7 +102,7 @@ def consume_auth_code(
 ) -> Optional[dict[str, Any]]:
     """Validate + mark used in one go. Returns the row on success, else None."""
     resp = (
-        supabase()
+        client()
         .table("oauth_auth_codes")
         .select("*")
         .eq("code", code)
@@ -130,7 +130,7 @@ def consume_auth_code(
     else:
         return None
 
-    supabase().table("oauth_auth_codes").update({"used": True}).eq("code", code).execute()
+    client().table("oauth_auth_codes").update({"used": True}).eq("code", code).execute()
     return row
 
 
@@ -139,7 +139,7 @@ def consume_auth_code(
 def create_access_token(client_id: str, scope: Optional[str]) -> tuple[str, int]:
     token = _gen(48)
     expires_at = (_now() + timedelta(seconds=ACCESS_TOKEN_TTL_SEC)).isoformat()
-    supabase().table("oauth_tokens").insert(
+    client().table("oauth_tokens").insert(
         {
             "token": token,
             "client_id": client_id,
@@ -152,7 +152,7 @@ def create_access_token(client_id: str, scope: Optional[str]) -> tuple[str, int]
 
 def verify_access_token(token: str) -> Optional[dict[str, Any]]:
     resp = (
-        supabase()
+        client()
         .table("oauth_tokens")
         .select("*")
         .eq("token", token)

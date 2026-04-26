@@ -9,6 +9,7 @@ import { SwissSidebar } from "./swiss-sidebar";
 import { useAppSettings, useCourses, useSession } from "@/lib/queries";
 import { applyCourseColors } from "@/lib/theme";
 import { applyTheme, normalizeTheme } from "@/lib/themes";
+import { useDocumentTitle, useHtmlLang } from "@/lib/document-head";
 
 export function AppShell() {
   const location = useLocation();
@@ -16,6 +17,9 @@ export function AppShell() {
   const session = useSession();
   const courses = useCourses();
   const settings = useAppSettings();
+
+  useDocumentTitle();
+  useHtmlLang();
 
   useEffect(() => {
     const handler = () =>

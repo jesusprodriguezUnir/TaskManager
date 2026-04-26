@@ -28,7 +28,7 @@ What to include:
 ## What's in scope
 
 - The OpenStudy codebase in this repository (backend, frontend, MCP server, build scripts).
-- The hosted service at `openstudy.dev` and its infrastructure (Vercel deployment, Supabase project configuration).
+- The hosted service at `openstudy.dev` and the docker-compose stack it runs.
 - Any first-party packages we publish to npm / PyPI.
 
 ## What's out of scope

@@ -8,11 +8,11 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, Request, status
 
 from .config import get_settings
-from .db import supabase
+from .db import client
 
 
 def client_ip(request: Request) -> str:
-    # Vercel sets x-forwarded-for; fall back to request.client.host
+    # Trust X-Forwarded-For from our reverse proxy (Caddy)
     xff = request.headers.get("x-forwarded-for")
     if xff:
         return xff.split(",")[0].strip()
@@ -27,7 +27,7 @@ async def check_login_rate(request: Request) -> None:
     since = (datetime.now(timezone.utc) - timedelta(minutes=s.login_attempts_window_min)).isoformat()
 
     resp = (
-        supabase()
+        client()
         .table("login_attempts")
         .select("id", count="exact")
         .eq("ip", ip)
@@ -46,6 +46,6 @@ async def check_login_rate(request: Request) -> None:
 async def record_login_attempt(request: Request, ok: bool) -> None:
     ip = client_ip(request)
     ua = request.headers.get("user-agent", "")[:200]
-    supabase().table("login_attempts").insert(
+    client().table("login_attempts").insert(
         {"ip": ip, "ok": ok, "user_agent": ua}
     ).execute()

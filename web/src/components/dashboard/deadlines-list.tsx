@@ -35,7 +35,7 @@ export function DeadlinesList({ deliverables }: { deliverables: Deliverable[] })
         return (
           <Link
             key={d.id}
-            to={`/courses/${code}`}
+            to={`/app/courses/${code}`}
             className="grid items-center gap-3 px-4 py-3 border-b border-hairline last:border-b-0 cursor-pointer transition-colors hover:bg-surface-2 relative"
             style={
               {

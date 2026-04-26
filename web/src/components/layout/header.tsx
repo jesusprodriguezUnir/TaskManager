@@ -22,7 +22,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-muted font-mono tabular-nums hidden md:block">{clock}</span>
           <NavLink
-            to="/settings"
+            to="/app/settings"
             aria-label="Settings"
             className={({ isActive }) =>
               cn(

@@ -11,7 +11,7 @@ A self-hostable personal study dashboard. Track your **courses, schedule, lectur
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Stack: FastAPI + React 19](https://img.shields.io/badge/stack-FastAPI%20%2B%20React%2019-0ea5e9)
-![Database: Supabase Postgres](https://img.shields.io/badge/db-Supabase%20Postgres-3ecf8e)
+![Database: Postgres 16](https://img.shields.io/badge/db-Postgres%2016-336791)
 ![AI: MCP-native (44 tools)](https://img.shields.io/badge/AI-MCP--native%2044%20tools-7c3aed)
 ![Self-hosted](https://img.shields.io/badge/hosting-self--hosted-111)
 ![Status: alpha](https://img.shields.io/badge/status-alpha-orange)
@@ -120,62 +120,78 @@ Plug it into Claude.ai as a custom connector (full OAuth 2.1) and those tools ar
 
 Before you start, have:
 
-- A **Supabase account** (free tier is fine) — database + file storage
-- A **Vercel account** (free hobby tier is fine) — hosts the app at a public URL so Claude.ai and the Claude iOS app can reach the MCP endpoint. Any other Python-capable host (Fly, Railway, your own VPS) works if you prefer; `vercel.json` is pre-configured for Vercel.
-- **Node 20+** and **pnpm** (via [corepack](https://pnpm.io/installation#using-corepack))
-- **Python 3.12** and [`uv`](https://docs.astral.sh/uv/)
+- **Docker** + **Docker Compose v2.30+** (the stack — Postgres, PostgREST, the FastAPI — all run as containers)
+- **Node 20+** and **pnpm** (via [corepack](https://pnpm.io/installation#using-corepack)) for building the frontend
+- A **public hostname pointing at your box** if you want Claude.ai or the Claude iOS app to reach the MCP endpoint (Claude Code can use `localhost`)
 - **~15 minutes** for first-time setup
 
-If you only ever want to use the dashboard locally from your laptop — no Claude.ai, no phone — you can skip Vercel and run it on `localhost`.
+The whole stack — Postgres, PostgREST, the FastAPI backend, and the static frontend — runs on a single box. Anything that runs Docker works: a €5/mo VPS is plenty.
 
 ## Quick start
 
-Get the app running on your laptop against a free Supabase project. No deploy, no MCP yet — that comes after.
+Get the full stack running locally. The frontend is built once and served by Caddy in production; for development, run it with `pnpm dev` against the dockerised backend.
 
-**1. Clone + install deps.**
+**1. Clone + install frontend deps.**
 
 ```bash
 git clone https://github.com/openstudy-dev/OpenStudy
 cd OpenStudy
-uv sync                              # Python deps
-cd web && pnpm install && cd ..      # frontend deps
+cd web && pnpm install && cd ..
 ```
 
-**2. Create a Supabase project.** Go to [supabase.com](https://supabase.com) → **New project**. Set a database password and save it somewhere secure (you can't retrieve it later). Once it provisions: copy the **Project URL** from the project overview (top of the page → **Copy** → *Project URL*), and grab the **`service_role` key** from **Project Settings → API Keys → "Legacy anon, service_role API keys"**. You'll paste both in the next step.
-
-**3. Fill in `.env`.**
+**2. Generate secrets and write `.env` files.**
 
 ```bash
 cp .env.example .env
-uv run python -m app.tools.hashpw 'pick-a-strong-password'     # → APP_PASSWORD_HASH
-python -c 'import secrets; print(secrets.token_urlsafe(48))'   # → SESSION_SECRET  (use `py` on Windows if `python` isn't on PATH)
+
+# Pick a login password, hash it with Argon2id, and paste the result as APP_PASSWORD_HASH:
+docker run --rm python:3.12-slim sh -c 'pip install -q argon2-cffi && python -c "from argon2 import PasswordHasher; print(PasswordHasher().hash(input(\"password: \")))"'
+
+# Generate a 48-byte session secret and paste as SESSION_SECRET:
+python -c 'import secrets; print(secrets.token_urlsafe(48))'
+
+# Generate a Postgres password and write the Docker-only env file:
+cat > .env.docker <<EOF
+POSTGRES_USER=openstudy
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
+POSTGRES_DB=openstudy
+EOF
+chmod 600 .env.docker
 ```
 
-Open `.env`, paste the Supabase URL, the service key, the password hash, and the session secret. Create `web/.env.local` with `VITE_API_BASE_URL=http://localhost:8000`.
+`.env` holds your application secrets (password hash, session secret, optional Telegram tokens). `.env.docker` holds the Postgres credentials that compose injects into the postgres + postgrest containers. Both are in `.gitignore`.
 
-**4. Apply the migrations.** Use the Supabase CLI — it tracks what's been applied in the `supabase_migrations.schema_migrations` table, so re-runs are safe.
+**3. Bring up the stack.**
 
 ```bash
-npx supabase login                                  # opens browser, one-time
-npx supabase link --project-ref YOUR-PROJECT-REF    # from supabase.com → project settings → General
-npx supabase db push                                # applies everything under supabase/migrations/
+./deploy.sh
 ```
 
-(If you don't want the CLI, every SQL file under `supabase/migrations/` can also be pasted into the Supabase dashboard's **SQL Editor** in filename order. See [INSTALL.md §4](./INSTALL.md#4-apply-the-migrations) for both paths plus the upgrade flow for an existing DB.)
+`deploy.sh` validates compose, builds the openstudy image, applies any pending migrations against the Postgres container, starts everything, then polls `GET /api/health` for up to 60 s. If health doesn't go green it auto-rolls back to the previously deployed image.
 
-**5. Run it.**
+The backend is now live at `http://127.0.0.1:8000`. Verify:
 
 ```bash
-# Terminal 1
-uv run uvicorn app.main:app --reload        # → http://localhost:8000
-
-# Terminal 2
-cd web && pnpm dev                          # → http://localhost:5173
+curl http://127.0.0.1:8000/api/health
+# → {"ok":true,"version":"...","db":"ok","storage":"ok ..."}
 ```
 
-Open `http://localhost:5173` and log in with the password you hashed. That's it — you're running.
+**4. Use it.**
 
-Stuck? Full walkthrough with screenshots-of-setup-steps, Supabase CLI alternative, and troubleshooting is in **[INSTALL.md](./INSTALL.md)**.
+The frontend is also a container — `./deploy.sh` brought it up at
+`http://127.0.0.1:8080`. Open that in your browser and log in with the
+password you hashed. For a public domain, just point your reverse proxy
+(Caddy / nginx / etc.) at `127.0.0.1:8080` — the in-container Caddy
+handles routing static assets vs. proxying API/MCP traffic.
+
+For local frontend development with Vite hot-reload:
+
+```bash
+echo "VITE_API_BASE_URL=http://localhost:8000" > web/.env.local
+cd web && pnpm dev   # → http://localhost:5173
+```
+
+Stuck or want the production checklist? Full walkthrough is in **[INSTALL.md](./INSTALL.md)**.
 
 ## What you do inside the app
 
@@ -189,17 +205,17 @@ On first boot, everything's empty. You build it up in the UI (or via Claude thro
 
 ## The MCP connector
 
-> **Prerequisite: the app needs to be reachable at a public URL.** Claude.ai and the iOS app can't talk to `localhost` — so before connecting the MCP, deploy to Vercel (or Fly / Railway / your own VPS). Full steps in [INSTALL.md §6](./INSTALL.md#6-deploy-to-vercel-or-skip). Claude Code is the exception: it can hit `http://localhost:8000/mcp` directly.
+> **Prerequisite: the app needs to be reachable at a public URL.** Claude.ai and the iOS app can't talk to `localhost` — so put the box behind a domain with TLS (Caddy + Let's Encrypt does this in two lines of config). Claude Code is the exception: it can hit `http://localhost:8000/mcp` directly.
 
-Once the app is live at `https://your-project.vercel.app`, it serves a Streamable HTTP MCP endpoint at `/mcp`, OAuth-gated. One endpoint, every client:
+Once the app is live at `https://your-domain.tld`, it serves a Streamable HTTP MCP endpoint at `/mcp`, OAuth-gated. One endpoint, every client:
 
 ```bash
 # Claude.ai (browser + iOS app): Settings → Connectors → Add custom connector
-#   paste: https://your-project.vercel.app/mcp
+#   paste: https://your-domain.tld/mcp
 
 # Claude Code (local CLI, any directory):
 claude mcp add --transport http --scope user \
-  openstudy https://your-project.vercel.app/mcp
+  openstudy https://your-domain.tld/mcp
 ```
 
 Both flows open your dashboard's login in a browser for the one-time OAuth consent. After that, the same 44 tools are live wherever you use Claude:
@@ -212,22 +228,25 @@ Both flows open your dashboard's login in a browser for the one-time OAuth conse
 
 **Claude.ai Projects** get a bigger quality boost when you paste a tailored system prompt alongside the connector. Template: [`docs/claude-ai-system-prompt.md`](./docs/claude-ai-system-prompt.md).
 
-Full walkthrough (including curl-based verification): [`INSTALL.md#5-connect-an-mcp-client`](./INSTALL.md#5-connect-an-mcp-client).
+Full walkthrough (including curl-based verification): [`INSTALL.md#7-connect-an-mcp-client`](./INSTALL.md#7-connect-an-mcp-client).
 
 ## What's in here
 
 ```
 app/                FastAPI + MCP server (Python, uv-managed)
   routers/          HTTP endpoints
-  services/         Supabase queries + business logic
-  mcp_tools.py      The 44 MCP tools
+  services/         Database queries + business logic
+  mcp_tools.py      The MCP tools
   schemas.py        Pydantic models
-supabase/
-  migrations/       Five SQL files — applied by `supabase db push` (or pasted into the SQL editor, in filename order)
+migrations/         SQL files run by scripts/run_migrations.py at deploy time
+  00000000000000_baseline.sql  Initial schema; new migrations stack on top
 web/
   src/              Vite + React 19 + Tailwind + shadcn/ui frontend
 scripts/
-  sync.py           Optional: mirror a local folder to the course_files bucket
+  run_migrations.py Idempotent migration runner with checksum tracking
+docker-compose.yml  Postgres + PostgREST + FastAPI on an internal network
+Dockerfile          Builds the openstudy:latest image
+deploy.sh           Build → migrate → roll → health-gate → rollback-on-fail
 docs/
   claude-ai-system-prompt.md    Template + walkthrough for a Claude.ai Project
   examples/                     Real lived-in versions, including the brief that produced this UI
@@ -235,11 +254,14 @@ docs/
 
 ## Stack
 
-- **Frontend:** Vite + React 19 + TypeScript + Tailwind + shadcn/ui
-- **Backend:** FastAPI (Python 3.12)
-- **Database:** Supabase Postgres
+Four containers behind a single host-side reverse proxy:
+
+- **Frontend:** Vite + React 19 + TypeScript + Tailwind + shadcn/ui, built into a Caddy:alpine image that serves the SPA and proxies API traffic to the backend on the internal docker network
+- **Backend:** FastAPI (Python 3.12) running as one uvicorn worker
+- **Data:** Postgres 16 + PostgREST 12 (both internal-network only — never exposed to the host)
+- **Files:** plain filesystem under `STUDY_ROOT` (default `/opt/courses`), bind-mounted into the FastAPI container
 - **MCP:** Python `mcp` SDK, mounted at `/mcp` over Streamable HTTP with OAuth 2.1
-- **Hosting:** Vercel (one project hosts both the static frontend and the Python functions)
+- **Hosting:** anywhere Docker runs — bring your own outer reverse proxy (Caddy in [INSTALL.md](./INSTALL.md)) for TLS termination
 
 ## Design
 
@@ -372,62 +394,79 @@ Stöpsel den Connector in Claude.ai (voller OAuth 2.1) und dieselben Tools sind 
 
 Bevor es losgeht, solltest du haben:
 
-- Einen **Supabase-Account** (Free Tier reicht) — Datenbank + File-Storage
-- Einen **Vercel-Account** (Free Hobby reicht) — hostet die App unter einer öffentlichen URL, damit Claude.ai und die iOS-App den MCP-Endpoint erreichen können. Jeder andere Python-fähige Host (Fly, Railway, eigener VPS) geht auch; `vercel.json` ist für Vercel vorkonfiguriert.
-- **Node 20+** und **pnpm** (via [corepack](https://pnpm.io/installation#using-corepack))
-- **Python 3.12** und [`uv`](https://docs.astral.sh/uv/)
+- **Docker** + **Docker Compose v2.30+** (der ganze Stack — Postgres, PostgREST, das FastAPI-Backend — läuft als Container)
+- **Node 20+** und **pnpm** (via [corepack](https://pnpm.io/installation#using-corepack)) zum Bauen des Frontends
+- Einen **öffentlichen Hostnamen, der auf deine Box zeigt**, falls Claude.ai oder die Claude-iOS-App den MCP-Endpoint erreichen sollen (Claude Code geht auch mit `localhost`)
 - **~15 Minuten** fürs erste Setup
 
-Wenn du das Dashboard nur lokal auf dem Laptop nutzen willst — ohne Claude.ai, ohne Handy — kannst du Vercel überspringen und alles auf `localhost` laufen lassen.
+Der komplette Stack — Postgres, PostgREST, FastAPI-Backend, statisches Frontend — läuft auf einer einzigen Box. Alles, worauf Docker läuft, reicht: ein 5 €/Monat-VPS hat genug Power.
 
 ## Quick Start
 
-Die App lokal gegen ein kostenloses Supabase-Projekt zum Laufen bringen. Kein Deploy, noch kein MCP — das kommt später.
+Den ganzen Stack lokal hochfahren. Das Frontend wird einmal gebaut und in Production von Caddy ausgeliefert; in der Entwicklung läuft es per `pnpm dev` gegen das dockerisierte Backend.
 
-**1. Klonen + Deps installieren.**
+**1. Klonen + Frontend-Deps installieren.**
 
 ```bash
 git clone https://github.com/openstudy-dev/OpenStudy
 cd OpenStudy
-uv sync                              # Python-Deps
-cd web && pnpm install && cd ..      # Frontend-Deps
+cd web && pnpm install && cd ..
 ```
 
-**2. Supabase-Projekt anlegen.** Auf [supabase.com](https://supabase.com) → **New project**. Ein Datenbank-Passwort setzen und sicher verwahren (lässt sich hinterher nicht zurückholen, nur zurücksetzen). Wenn es bereitgestellt ist: die **Project URL** aus der Projektübersicht kopieren (oben auf der Seite → **Copy** → *Project URL*), und den **`service_role`-Key** unter **Project Settings → API Keys → „Legacy anon, service_role API keys"** greifen. Beide kommen gleich in die `.env`.
-
-**3. `.env` befüllen.**
+**2. Secrets generieren und `.env`-Dateien schreiben.**
 
 ```bash
 cp .env.example .env
-uv run python -m app.tools.hashpw 'pick-a-strong-password'     # → APP_PASSWORD_HASH
-python -c 'import secrets; print(secrets.token_urlsafe(48))'   # → SESSION_SECRET  (unter Windows `py` nutzen, falls `python` nicht im PATH ist)
+
+# Login-Passwort wählen, mit Argon2id hashen und als APP_PASSWORD_HASH einfügen:
+docker run --rm python:3.12-slim sh -c 'pip install -q argon2-cffi && python -c "from argon2 import PasswordHasher; print(PasswordHasher().hash(input(\"password: \")))"'
+
+# 48-Byte-Session-Secret generieren und als SESSION_SECRET einfügen:
+python -c 'import secrets; print(secrets.token_urlsafe(48))'
+
+# Postgres-Passwort generieren und die Docker-spezifische env-Datei schreiben:
+cat > .env.docker <<EOF
+POSTGRES_USER=openstudy
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
+POSTGRES_DB=openstudy
+EOF
+chmod 600 .env.docker
 ```
 
-`.env` öffnen, Supabase-URL, Service-Key, Passwort-Hash und Session-Secret einfügen. Zusätzlich `web/.env.local` mit `VITE_API_BASE_URL=http://localhost:8000` anlegen.
+`.env` enthält deine App-Secrets (Passwort-Hash, Session-Secret, optional Telegram-Tokens). `.env.docker` enthält die Postgres-Credentials, die Compose in die Postgres- und PostgREST-Container injiziert. Beide sind in `.gitignore`.
 
-**4. Migrationen anwenden.** Über die Supabase-CLI — sie trackt in `supabase_migrations.schema_migrations`, welche Migrationen schon gelaufen sind, also ist mehrfaches Pushen unkritisch.
+**3. Stack starten.**
 
 ```bash
-npx supabase login                                  # öffnet Browser, einmalig
-npx supabase link --project-ref YOUR-PROJECT-REF    # auf supabase.com → Project Settings → General
-npx supabase db push                                # wendet alles unter supabase/migrations/ an
+./deploy.sh
 ```
 
-(Wenn du die CLI nicht willst, kannst du jede SQL-Datei unter `supabase/migrations/` auch einfach in den **SQL Editor** des Supabase-Dashboards kopieren — in Dateinamen-Reihenfolge. Siehe [INSTALL.md §4](./INSTALL.md#4-apply-the-migrations) für beide Wege plus den Upgrade-Flow für eine existierende DB.)
+`deploy.sh` validiert Compose, baut das `openstudy`-Image, wendet alle ausstehenden Migrationen gegen den Postgres-Container an, startet alles und pollt dann `GET /api/health` für bis zu 60 s. Wenn Health nicht grün wird, rollt es automatisch auf das vorherige Image zurück.
 
-**5. Starten.**
+Das Backend läuft jetzt unter `http://127.0.0.1:8000`. Verifizieren:
 
 ```bash
-# Terminal 1
-uv run uvicorn app.main:app --reload        # → http://localhost:8000
-
-# Terminal 2
-cd web && pnpm dev                          # → http://localhost:5173
+curl http://127.0.0.1:8000/api/health
+# → {"ok":true,"version":"...","db":"ok","storage":"ok ..."}
 ```
 
-`http://localhost:5173` öffnen, mit dem gehashten Passwort einloggen. Fertig — es läuft.
+**4. Loslegen.**
 
-Haken dran? Vollständiger Walkthrough mit Screenshots, Supabase-CLI-Alternative und Troubleshooting in **[INSTALL.md](./INSTALL.md)** (auf Englisch).
+Das Frontend ist auch ein Container — `./deploy.sh` hat es unter
+`http://127.0.0.1:8080` hochgefahren. Öffne das im Browser und logg
+dich mit dem gehashten Passwort ein. Für eine öffentliche Domain
+einfach deinen Reverse Proxy (Caddy / nginx / etc.) auf `127.0.0.1:8080`
+zeigen lassen — der Caddy im Container kümmert sich um die Aufteilung
+zwischen statischen Assets und API/MCP-Traffic.
+
+Für lokale Frontend-Entwicklung mit Vite-Hot-Reload:
+
+```bash
+echo "VITE_API_BASE_URL=http://localhost:8000" > web/.env.local
+cd web && pnpm dev   # → http://localhost:5173
+```
+
+Hängen geblieben oder Production-Checkliste gewünscht? Vollständiger Walkthrough in **[INSTALL.md](./INSTALL.md)** (auf Englisch).
 
 ## Was du in der App tust
 
@@ -441,17 +480,17 @@ Beim ersten Start ist alles leer. Du baust es in der UI auf (oder über Claude +
 
 ## Der MCP-Connector
 
-> **Voraussetzung: die App braucht eine öffentliche URL.** Claude.ai und die iOS-App können nicht auf `localhost` zugreifen — also vor dem MCP-Anbinden auf Vercel (oder Fly / Railway / eigenem VPS) deployen. Komplette Schritte in [INSTALL.md §6](./INSTALL.md#6-deploy-to-vercel-or-skip). Claude Code ist die Ausnahme: es kann `http://localhost:8000/mcp` direkt erreichen.
+> **Voraussetzung: die App braucht eine öffentliche URL.** Claude.ai und die iOS-App können nicht auf `localhost` zugreifen — also die Box hinter eine Domain mit TLS stellen (Caddy + Let's Encrypt erledigt das in zwei Zeilen Config). Claude Code ist die Ausnahme: es kann `http://localhost:8000/mcp` direkt erreichen.
 
-Sobald die App unter `https://your-project.vercel.app` läuft, stellt sie einen Streamable-HTTP-MCP-Endpoint unter `/mcp` bereit, OAuth-geschützt. Ein Endpoint, jeder Client:
+Sobald die App unter `https://your-domain.tld` läuft, stellt sie einen Streamable-HTTP-MCP-Endpoint unter `/mcp` bereit, OAuth-geschützt. Ein Endpoint, jeder Client:
 
 ```bash
 # Claude.ai (Browser + iOS-App): Settings → Connectors → Add custom connector
-#   einfügen: https://your-project.vercel.app/mcp
+#   einfügen: https://your-domain.tld/mcp
 
 # Claude Code (lokales CLI, jedes Verzeichnis):
 claude mcp add --transport http --scope user \
-  openstudy https://your-project.vercel.app/mcp
+  openstudy https://your-domain.tld/mcp
 ```
 
 Beide Flows öffnen den Login deines Dashboards im Browser fürs einmalige OAuth-Consent. Danach sind dieselben 44 Tools überall verfügbar, wo du Claude nutzt:
@@ -464,22 +503,25 @@ Beide Flows öffnen den Login deines Dashboards im Browser fürs einmalige OAuth
 
 **Claude.ai-Projects** werden deutlich besser, wenn du zusätzlich zum Connector einen passenden System-Prompt einfügst. Vorlage: [`docs/claude-ai-system-prompt.md`](./docs/claude-ai-system-prompt.md).
 
-Vollständiger Walkthrough (inkl. curl-basierter Verifikation): [`INSTALL.md#5-connect-an-mcp-client`](./INSTALL.md#5-connect-an-mcp-client).
+Vollständiger Walkthrough (inkl. curl-basierter Verifikation): [`INSTALL.md#7-connect-an-mcp-client`](./INSTALL.md#7-connect-an-mcp-client).
 
 ## Was hier drin liegt
 
 ```
 app/                FastAPI + MCP-Server (Python, via uv verwaltet)
   routers/          HTTP-Endpoints
-  services/         Supabase-Queries + Business-Logik
-  mcp_tools.py      die 44 MCP-Tools
+  services/         Datenbank-Queries + Business-Logik
+  mcp_tools.py      die MCP-Tools
   schemas.py        Pydantic-Modelle
-supabase/
-  migrations/       Fünf SQL-Dateien — via `supabase db push` angewendet (oder in den SQL Editor kopiert, in Dateinamen-Reihenfolge)
+migrations/         SQL-Dateien, die scripts/run_migrations.py beim Deploy anwendet
+  00000000000000_baseline.sql  Initiales Schema; neue Migrationen stapeln darauf
 web/
   src/              Vite + React 19 + Tailwind + shadcn/ui Frontend
 scripts/
-  sync.py           Optional: lokalen Ordner in den course_files-Bucket spiegeln
+  run_migrations.py Idempotenter Migrations-Runner mit Checksum-Tracking
+docker-compose.yml  Postgres + PostgREST + FastAPI auf einem internen Netzwerk
+Dockerfile          Baut das openstudy:latest-Image
+deploy.sh           Build → Migrate → Roll → Health-Gate → Auto-Rollback
 docs/
   claude-ai-system-prompt.md    Vorlage + Walkthrough für ein Claude.ai-Project
   examples/                     echte, gelebte Versionen, inklusive des Briefs, aus dem diese UI entstand
@@ -487,11 +529,14 @@ docs/
 
 ## Stack
 
-- **Frontend:** Vite + React 19 + TypeScript + Tailwind + shadcn/ui
-- **Backend:** FastAPI (Python 3.12)
-- **Datenbank:** Supabase Postgres
+Vier Container hinter einem einzelnen Reverse Proxy auf dem Host:
+
+- **Frontend:** Vite + React 19 + TypeScript + Tailwind + shadcn/ui, gebaut in ein Caddy:alpine-Image, das die SPA ausliefert und API-Traffic an das Backend im internen Docker-Netzwerk durchreicht
+- **Backend:** FastAPI (Python 3.12) als ein uvicorn-Worker
+- **Daten:** Postgres 16 + PostgREST 12 (beide nur im internen Netzwerk — nie zum Host exponiert)
+- **Dateien:** plain Filesystem unter `STUDY_ROOT` (Default `/opt/courses`), per Bind-Mount in den FastAPI-Container
 - **MCP:** Python-`mcp`-SDK, gemountet unter `/mcp` über Streamable HTTP mit OAuth 2.1
-- **Hosting:** Vercel (ein Projekt hostet sowohl das statische Frontend als auch die Python-Funktionen)
+- **Hosting:** überall, wo Docker läuft — äußerer Reverse Proxy (Caddy in [INSTALL.md](./INSTALL.md)) übernimmt TLS
 
 ## Design
 

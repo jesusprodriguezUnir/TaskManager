@@ -7,6 +7,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAppSettings, useCourses } from "@/lib/queries";
+import { Wordmark } from "@/components/brand/wordmark";
 
 function cv(code: string) { return `var(--course-${code.toLowerCase()})`; }
 
@@ -51,23 +52,23 @@ export function LibrarySidebar() {
       </div>
 
       <div className="l-sect"><span className="l-rn">§</span>{t("nav.sections")}</div>
-      <LLink to="/" end>
+      <LLink to="/app" end>
         <span className="l-rn">I</span>
         <span className="l-nm">{t("nav.today")}</span>
       </LLink>
-      <LLink to="/courses" end>
+      <LLink to="/app/courses" end>
         <span className="l-rn">II</span>
         <span className="l-nm">{t("nav.courses")}</span>
       </LLink>
-      <LLink to="/tasks">
+      <LLink to="/app/tasks">
         <span className="l-rn">III</span>
         <span className="l-nm">{t("nav.tasks")}</span>
       </LLink>
-      <LLink to="/exams">
+      <LLink to="/app/exams">
         <span className="l-rn">IV</span>
         <span className="l-nm">{t("nav.exams")}</span>
       </LLink>
-      <LLink to="/files">
+      <LLink to="/app/files">
         <span className="l-rn">V</span>
         <span className="l-nm">{t("nav.files")}</span>
       </LLink>
@@ -78,7 +79,7 @@ export function LibrarySidebar() {
         return (
           <LLink
             key={c.code}
-            to={`/courses/${c.code}`}
+            to={`/app/courses/${c.code}`}
             className="l-vol"
             style={{ "--accent": cv(c.code) } as CSSProperties}
           >
@@ -95,14 +96,26 @@ export function LibrarySidebar() {
       })}
 
       <div className="l-sect"><span className="l-rn">§</span>{t("nav.archive")}</div>
-      <LLink to="/activity">
+      <LLink to="/app/activity">
         <span className="l-rn">VI</span>
         <span className="l-nm">{t("nav.activity")}</span>
       </LLink>
-      <LLink to="/settings">
+      <LLink to="/app/settings">
         <span className="l-rn">VII</span>
         <span className="l-nm">{t("nav.settings")}</span>
       </LLink>
+
+      <div
+        style={{
+          marginTop: "auto",
+          padding: "18px 0 8px",
+          display: "flex",
+          justifyContent: "center",
+          opacity: 0.4,
+        }}
+      >
+        <Wordmark style={{ height: 18, width: "auto" }} />
+      </div>
     </aside>
   );
 }

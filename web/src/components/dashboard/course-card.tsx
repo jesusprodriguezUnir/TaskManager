@@ -23,7 +23,7 @@ export function CourseCard({
 
   return (
     <Link
-      to={`/courses/${course.code}`}
+      to={`/app/courses/${course.code}`}
       className={cn(
         "card relative overflow-hidden block cursor-pointer",
         "transition-[border-color,transform,box-shadow,background] duration-150 ease-out",

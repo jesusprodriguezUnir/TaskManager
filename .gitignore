@@ -13,6 +13,8 @@ web/dist/
 # env
 .env
 .env.local
+.env.production
+.env.development
 .env.*.local
 !.env.example
 
@@ -51,6 +53,7 @@ CLAUDE.md
 ROADMAP.md
 launch-posts.md
 OPENSTUDY-PLAN.md
+OPS.md
 
 # brand build tooling + internal preview (finished SVG/PNG assets ARE committed)
 docs/brand/preview.html
@@ -59,3 +62,13 @@ scripts/_vectorize_mark.py
 scripts/_build_wordmark.py
 scripts/_remove_watermark.py
 scripts/_export_brand.py
+
+# Personal automation / ops scripts not for distribution. The patterns these
+# implement (cron-trigger reindex, Telegram bot webhook) are generic and live
+# in app/routers/internal.py — what's gitignored here is the maintainer's
+# specific local-laptop and remote-host wiring.
+scripts/laptop-sync.bat
+scripts/_purge_old_moodle.py
+scripts/_set_password.py
+scripts/n8n-workflows/
+scripts/_deprecated/

@@ -1,0 +1,152 @@
+# OpenStudy stack: postgres + postgrest + fastapi + frontend.
+# All four containers live on an internal docker network. Only `frontend`
+# (which serves the SPA and reverse-proxies API traffic to fastapi) and
+# `openstudy` (kept exposed for direct curl debugging) are bound to the host.
+# A user's outer reverse proxy (Caddy / nginx / Traefik / whatever)
+# terminates TLS and forwards to 127.0.0.1:8080 (the frontend container).
+#
+# Bring up:   ./deploy.sh
+# Logs:       docker compose logs -f openstudy
+# Shell in:   docker compose exec openstudy bash
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: openstudy-postgres
+    restart: unless-stopped
+    env_file:
+      - path: .env.docker
+        format: raw
+        required: true
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - /opt/postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+    networks: [internal]
+    # Never expose postgres to the host or internet — only postgrest + openstudy
+    # talk to it via the internal docker network.
+
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: openstudy-postgrest
+    restart: unless-stopped
+    env_file:
+      - path: .env.docker
+        format: raw
+        required: true
+    environment:
+      PGRST_DB_URI: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: ${POSTGRES_USER}
+      PGRST_OPENAPI_MODE: disabled
+      PGRST_LOG_LEVEL: info
+      # JWT auth deliberately disabled — postgrest is on the internal network
+      # only, fronted by FastAPI which does its own session/MCP auth.
+      # If we ever expose postgrest externally, set PGRST_JWT_SECRET here.
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # No healthcheck — postgrest's image ships no curl/wget/nc, and any
+    # CMD-SHELL exit 0 trick still reports unhealthy in some compose builds.
+    # The openstudy container's /api/health does a real DB call through here,
+    # so postgrest health is covered transitively.
+    networks: [internal]
+
+  openstudy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: openstudy:latest
+    container_name: openstudy
+    restart: unless-stopped
+    env_file:
+      # format: raw disables ${VAR} interpolation inside values — required so
+      # APP_PASSWORD_HASH ("$argon2id$v=19$m=...") isn't mangled by compose
+      # treating $argon2id, $v, $m as undefined variables.
+      - path: .env
+        format: raw
+        required: true
+      - path: .env.docker
+        format: raw
+        required: true
+    environment:
+      # Point app/db.py at the local postgrest container on the internal
+      # network. The API key is any non-empty string since postgrest JWT
+      # auth is disabled — it's only required by the settings validator.
+      POSTGREST_URL: "http://postgrest:3000"
+      POSTGREST_API_KEY: "internal"
+      # Don't send Bearer auth to local PostgREST — JWT is disabled and
+      # any non-JWT bearer value 500s.
+      POSTGREST_AUTH: "false"
+      # Tell the storage layer where the canonical course tree lives.
+      STUDY_ROOT: "/opt/courses"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgrest:
+        condition: service_started
+    volumes:
+      # Bind mount, not volume — files live on the host, container reads/writes
+      # them in place. Same path inside and outside for sanity.
+      - /opt/courses:/opt/courses:rw
+    ports:
+      # Bind to localhost only; Caddy on the host reverse-proxies in.
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    networks: [internal]
+
+  frontend:
+    build:
+      # Context is the repo root (not just web/) because the Vite prebuild
+      # invokes scripts/build-seo.mjs which lives one level up.
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        # Build-time env baked into the SPA bundle.
+        #
+        # API_BASE_URL is empty: the in-image Caddy proxies /api/* to the
+        # openstudy container on the internal network, so the SPA always
+        # talks to the API as same-origin.
+        #
+        # PUBLIC_SITE_URL / PUBLIC_SITE_NAME come from your .env.docker
+        # (or shell env). They land in <link rel=canonical>, OpenGraph
+        # tags, JSON-LD, robots.txt, sitemap.xml and the manifest. Set
+        # them to YOUR domain and name; the localhost default keeps the
+        # build deterministic for first-run dev but is not what you want
+        # for a public deploy.
+        VITE_API_BASE_URL: ""
+        VITE_SITE_URL: "${PUBLIC_SITE_URL:-http://localhost:8080}"
+        VITE_SITE_NAME: "${PUBLIC_SITE_NAME:-OpenStudy}"
+        VITE_SHOW_LANDING: "${PUBLIC_SHOW_LANDING:-false}"
+    image: openstudy-frontend:latest
+    container_name: openstudy-frontend
+    restart: unless-stopped
+    depends_on:
+      openstudy:
+        condition: service_started
+    ports:
+      # Bind to localhost only; the host's reverse proxy (Caddy etc.)
+      # terminates TLS and forwards here.
+      - "127.0.0.1:8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    networks: [internal]
+
+networks:
+  internal:
+    driver: bridge

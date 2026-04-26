@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from ..db import supabase
+from ..db import client
 from ..schemas import Deliverable, DeliverableCreate, DeliverablePatch
 from ._helpers import model_dump_clean
 
@@ -11,7 +11,7 @@ def list_deliverables(
     status: Optional[str] = None,
     due_before: Optional[datetime] = None,
 ) -> List[Deliverable]:
-    q = supabase().table("deliverables").select("*").order("due_at")
+    q = client().table("deliverables").select("*").order("due_at")
     if course_code:
         q = q.eq("course_code", course_code)
     if status:
@@ -23,7 +23,7 @@ def list_deliverables(
 
 
 def create_deliverable(payload: DeliverableCreate) -> Deliverable:
-    resp = supabase().table("deliverables").insert(model_dump_clean(payload)).execute()
+    resp = client().table("deliverables").insert(model_dump_clean(payload)).execute()
     return Deliverable.model_validate(resp.data[0])
 
 
@@ -32,7 +32,7 @@ def update_deliverable(deliverable_id: str, patch: DeliverablePatch) -> Delivera
     if not data:
         raise ValueError("empty patch")
     resp = (
-        supabase().table("deliverables").update(data).eq("id", deliverable_id).execute()
+        client().table("deliverables").update(data).eq("id", deliverable_id).execute()
     )
     if not resp.data:
         raise ValueError(f"deliverable {deliverable_id} not found")
@@ -48,7 +48,7 @@ def reopen_deliverable(deliverable_id: str) -> Deliverable:
 
 
 def delete_deliverable(deliverable_id: str) -> None:
-    supabase().table("deliverables").delete().eq("id", deliverable_id).execute()
+    client().table("deliverables").delete().eq("id", deliverable_id).execute()
 
 
 __all__ = [

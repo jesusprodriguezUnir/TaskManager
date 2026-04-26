@@ -18,15 +18,17 @@ from .routers import (
     oauth as oauth_router,
     files as files_router,
     settings as settings_router,
+    internal as internal_router,
 )
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
 
-    # _AutoStartMcpApp enters the session manager's lifespan on first request
-    # and keeps it open — Vercel's Python runtime doesn't fire ASGI lifespan,
-    # so we can't rely on chaining it into FastAPI's lifespan in prod.
+    # _AutoStartMcpApp enters the session manager's lifespan on first
+    # request and keeps it open. This sidesteps having to chain the MCP
+    # lifespan into FastAPI's, which is fragile under some serverless
+    # runtimes that don't fire ASGI lifespan events at all.
     mcp_app = build_mcp_http_app()
 
     app = FastAPI(
@@ -45,10 +47,30 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Health
+    # Health — checked by deploy.sh during rollouts. `ok` is true ONLY if
+    # every dependency is reachable (db, storage). Returns 200 either way so
+    # the caller can read the body for diagnostics.
     @app.get("/api/health")
     async def health() -> JSONResponse:
-        return JSONResponse({"ok": True})
+        from .db import client as db_client
+        from .services import storage as storage_svc
+
+        out: dict = {"ok": True, "version": "0.5.0"}
+        # DB check: a trivial select via PostgREST (uses head=true to skip body)
+        try:
+            db_client().table("courses").select("code", head=True, count="exact").execute()
+            out["db"] = "ok"
+        except Exception as exc:
+            out["db"] = f"error: {exc!s}"[:200]
+            out["ok"] = False
+        # Storage check: STUDY_ROOT must exist and be readable
+        try:
+            entries = storage_svc.list_files("", limit=1)
+            out["storage"] = f"ok ({len(entries)} entries seen)"
+        except Exception as exc:
+            out["storage"] = f"error: {exc!s}"[:200]
+            out["ok"] = False
+        return JSONResponse(out)
 
     # Mount routers under /api
     for r in [
@@ -64,6 +86,7 @@ def create_app() -> FastAPI:
         lectures_router.router,
         files_router.router,
         settings_router.router,
+        internal_router.router,
     ]:
         app.include_router(r, prefix="/api")
 

@@ -173,7 +173,7 @@ function LectureBlock({ slot }: { slot: Slot }) {
   const accent = courseAccentVar(slot.course_code as CourseCode);
   return (
     <Link
-      to={`/courses/${slot.course_code}?tab=schedule`}
+      to={`/app/courses/${slot.course_code}?tab=schedule`}
       className="absolute left-1.5 right-1.5 rounded-[7px] bg-surface-2 border border-border overflow-hidden cursor-pointer transition-[border-color,background,transform] hover:border-border-strong hover:-translate-y-px no-underline text-inherit block"
       style={{ top, height, ["--accent" as string]: accent } as CSSProperties}
     >

@@ -5,7 +5,7 @@ to wire every tool onto the FastMCP instance.
 
 Auth: Bearer access tokens issued by our OAuth AS (app/services/oauth.py).
 
-Note on lifespan: Vercel's Python serverless runtime does NOT invoke ASGI
+Note on lifespan: some serverless runtimes do NOT invoke ASGI
 lifespan events, so FastMCP's StreamableHTTPSessionManager never gets its
 task group started via the normal path. The `_AutoStartMcpApp` wrapper below
 enters `session_manager.run()` lazily on the first request and keeps it alive
@@ -27,7 +27,7 @@ from .mcp_tools import register_tools
 from .services import oauth as oauth_svc
 
 
-class SupabaseTokenVerifier(TokenVerifier):
+class PostgrestTokenVerifier(TokenVerifier):
     def __init__(self, resource: str):
         self._resource = resource
 
@@ -161,11 +161,17 @@ error-prone: `mark_studied`, `complete_task`, `mark_deliverable_submitted`, \
 
 def _build_server() -> FastMCP:
     origin = _public_origin()
+    # Resource URL stays slash-less because the well-known metadata route
+    # (.well-known/oauth-protected-resource/<resource-path>) is registered
+    # by the framework without a trailing slash; advertising `/mcp/` here
+    # would point clients at a 307 redirect and the bearer header gets
+    # dropped on the redirect by some clients. The reverse proxy handles
+    # `/mcp` → `/mcp/` rewrites for actual JSON-RPC traffic.
     resource_url = f"{origin}/mcp"
     server = FastMCP(
         "openstudy",
         instructions=_SERVER_INSTRUCTIONS,
-        token_verifier=SupabaseTokenVerifier(resource_url),
+        token_verifier=PostgrestTokenVerifier(resource_url),
         auth=AuthSettings(
             issuer_url=origin,
             resource_server_url=resource_url,
@@ -184,7 +190,7 @@ def _build_server() -> FastMCP:
 
 
 async def _per_request_mcp_app(scope, receive, send) -> None:
-    """Per-request FastMCP build. Vercel's serverless Python runtime doesn't
+    """Per-request FastMCP build. Some serverless runtimes don't
     invoke ASGI lifespan AND each invocation may reset async state, so the
     only reliable pattern is to rebuild the server + session manager for
     every request. Heavy but bulletproof.

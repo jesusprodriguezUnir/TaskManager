@@ -1,4 +1,4 @@
-from ..db import supabase
+from ..db import client
 from ..schemas import AppSettings, AppSettingsPatch
 
 
@@ -7,7 +7,7 @@ SETTINGS_PK = 1
 
 def get_settings() -> AppSettings:
     resp = (
-        supabase()
+        client()
         .table("app_settings")
         .select("*")
         .eq("id", SETTINGS_PK)
@@ -16,7 +16,7 @@ def get_settings() -> AppSettings:
     )
     if not resp.data:
         # Idempotent upsert so the row is always there.
-        supabase().table("app_settings").insert({"id": SETTINGS_PK}).execute()
+        client().table("app_settings").insert({"id": SETTINGS_PK}).execute()
         return AppSettings()
     return AppSettings.model_validate(resp.data[0])
 
@@ -26,7 +26,7 @@ def update_settings(patch: AppSettingsPatch) -> AppSettings:
     if not data:
         return get_settings()
     resp = (
-        supabase()
+        client()
         .table("app_settings")
         .update(data)
         .eq("id", SETTINGS_PK)
@@ -35,7 +35,7 @@ def update_settings(patch: AppSettingsPatch) -> AppSettings:
     if not resp.data:
         # Row missing — create it with the patch applied.
         resp = (
-            supabase()
+            client()
             .table("app_settings")
             .insert({"id": SETTINGS_PK, **data})
             .execute()

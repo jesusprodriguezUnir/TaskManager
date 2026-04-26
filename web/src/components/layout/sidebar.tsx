@@ -14,6 +14,7 @@ import { courseAccentVar } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 import type { CourseCode } from "@/data/types";
 import { semesterWeek } from "@/lib/time";
+import { Wordmark } from "@/components/brand/wordmark";
 
 function deriveMonogram(name: string | null | undefined, fallback: string): string {
   if (!name) return fallback;
@@ -29,18 +30,18 @@ type NavItemDef = {
 };
 
 const workspace: NavItemDef[] = [
-  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard, end: true },
-  { to: "/courses", labelKey: "nav.courses", icon: BookOpen },
-  { to: "/tasks", labelKey: "nav.tasks", icon: ListChecks },
-  { to: "/files", labelKey: "nav.files", icon: FolderOpen },
-  { to: "/exams", labelKey: "nav.exams", icon: GraduationCap },
+  { to: "/app", labelKey: "nav.dashboard", icon: LayoutDashboard, end: true },
+  { to: "/app/courses", labelKey: "nav.courses", icon: BookOpen },
+  { to: "/app/tasks", labelKey: "nav.tasks", icon: ListChecks },
+  { to: "/app/files", labelKey: "nav.files", icon: FolderOpen },
+  { to: "/app/exams", labelKey: "nav.exams", icon: GraduationCap },
 ];
 const systemItems: NavItemDef[] = [
-  { to: "/activity", labelKey: "nav.activity", icon: Activity },
-  { to: "/settings", labelKey: "nav.settings", icon: Settings },
+  { to: "/app/activity", labelKey: "nav.activity", icon: Activity },
+  { to: "/app/settings", labelKey: "nav.settings", icon: Settings },
 ];
 
-const mobileOrder = ["/", "/courses", "/tasks", "/files", "/exams"];
+const mobileOrder = ["/app", "/app/courses", "/app/tasks", "/app/files", "/app/exams"];
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -109,7 +110,7 @@ export function Sidebar() {
       <div className="flex-1 overflow-y-auto px-3 pt-[14px] pb-5">
         <NavSection label={t("nav.pages")}>
           {workspace.map((item) => {
-            const isTasks = item.to === "/tasks";
+            const isTasks = item.to === "/app/tasks";
             return (
               <SidebarLink
                 key={item.to}
@@ -130,7 +131,7 @@ export function Sidebar() {
             return (
               <NavLink
                 key={c.code}
-                to={`/courses/${c.code}`}
+                to={`/app/courses/${c.code}`}
                 className={({ isActive }) =>
                   cn(
                     "group flex items-center gap-[10px] px-[10px] py-2 rounded-md transition-colors relative",
@@ -194,6 +195,9 @@ export function Sidebar() {
         </NavSection>
       </div>
 
+      <div className="px-4 py-3 border-t border-hairline flex items-center justify-center text-subtle">
+        <Wordmark className="h-[18px] opacity-60" />
+      </div>
     </aside>
   );
 }

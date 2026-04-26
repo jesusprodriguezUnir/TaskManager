@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from ..db import supabase
+from ..db import client
 from ..schemas import Task, TaskCreate, TaskPatch
 from ._helpers import model_dump_clean
 
@@ -13,7 +13,7 @@ def list_tasks(
     due_before: Optional[datetime] = None,
     tag: Optional[str] = None,
 ) -> List[Task]:
-    q = supabase().table("tasks").select("*").order("due_at", desc=False)
+    q = client().table("tasks").select("*").order("due_at", desc=False)
     if course_code:
         q = q.eq("course_code", course_code)
     if status:
@@ -30,7 +30,7 @@ def list_tasks(
 
 
 def create_task(payload: TaskCreate) -> Task:
-    resp = supabase().table("tasks").insert(model_dump_clean(payload)).execute()
+    resp = client().table("tasks").insert(model_dump_clean(payload)).execute()
     return Task.model_validate(resp.data[0])
 
 
@@ -43,7 +43,7 @@ def update_task(task_id: str, patch: TaskPatch) -> Task:
     elif data.get("status") in ("open", "in_progress", "blocked", "skipped"):
         # Clear completed_at when moving back out of done
         data["completed_at"] = None
-    resp = supabase().table("tasks").update(data).eq("id", task_id).execute()
+    resp = client().table("tasks").update(data).eq("id", task_id).execute()
     if not resp.data:
         raise ValueError(f"task {task_id} not found")
     return Task.model_validate(resp.data[0])
@@ -58,4 +58,4 @@ def complete_task(task_id: str) -> Task:
 
 
 def delete_task(task_id: str) -> None:
-    supabase().table("tasks").delete().eq("id", task_id).execute()
+    client().table("tasks").delete().eq("id", task_id).execute()

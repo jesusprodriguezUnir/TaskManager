@@ -4,6 +4,149 @@ All notable changes to OpenStudy will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versions follow [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.0] — 2026-04-26
+
+**Self-hosted by default.** Big architectural shift: OpenStudy no longer
+depends on Supabase or Vercel. The whole stack — Postgres, PostgREST,
+FastAPI, and the React frontend — runs as four containers on any Docker
+host, brought up with a single `./deploy.sh`. Course files live on a
+bind-mounted directory instead of object storage, indexed locally for
+full-text search. On top of the architectural move, this release also
+ships a public landing page, brand identity, TOTP 2FA, and a Telegram
+bot integration.
+
+### Added — infrastructure
+- **`docker-compose.yml`** — four-service stack on an internal bridge
+  network: `openstudy-postgres` (Postgres 16-alpine), `openstudy-postgrest`
+  (PostgREST 12.2.3, JWT auth disabled, only reachable from the network),
+  `openstudy` (the FastAPI image built from `Dockerfile`), and
+  `openstudy-frontend` (the React SPA served by an in-container Caddy).
+  Only the frontend (`127.0.0.1:8080`) and FastAPI (`127.0.0.1:8000`) are
+  bound to the host; an outer reverse proxy (Caddy / nginx / Traefik)
+  forwards a single `127.0.0.1:8080` upstream.
+- **`Dockerfile`** — `python:3.12-slim` base, uv-managed deps, multi-layer
+  cache for fast rebuilds.
+- **`web/Dockerfile`** — multi-stage build: Node 20 + pnpm builds the
+  Vite SPA, then a `caddy:alpine` image serves it. The Caddyfile inside
+  the image does SPA fallback (`try_files`) plus `reverse_proxy
+  openstudy:8000` for `/api`, `/mcp`, `/oauth` paths.
+- **`./deploy.sh`** — single-command deploy with rollback. Pre-flight →
+  build both images → apply migrations → health-gate (`GET /api/health`
+  polled for 60s) → rollback to the previous image if health doesn't go
+  green. Flags: `--skip-build`, `--no-rollback`, `--status`, `--help`.
+- **Migrations runner** (`scripts/run_migrations.py`) — idempotent,
+  transactional, sha256-tracked. State lives in a `_migrations` table.
+  Files under `migrations/` apply in filename order.
+- **Initial schema as `migrations/00000000000000_baseline.sql`** —
+  canonical starting point for fresh deployments. Earlier development
+  history preserved under `migrations/_archive/` for reference.
+- **Filesystem storage layer** (`app/services/storage.py`) — files live
+  at `STUDY_ROOT` (default `/opt/courses`); the storage service does
+  read / write / list / move / delete directly on disk. Browser file
+  serving via new `/api/files/raw` and `/api/files/upload-target`
+  endpoints (cookie-authenticated, same-origin).
+- **Filesystem full-text index** (`app/services/file_index.py`,
+  `scripts/index_files.py`, baked into the baseline migration): walks
+  `STUDY_ROOT`, extracts text from PDFs / notebooks / markdown / typst,
+  upserts into `file_index`. Search exposed as `GET /api/files/search`,
+  backed by the `search_files` Postgres RPC for ranking + snippet
+  generation in one round-trip.
+- **`/api/health`** now checks dependencies (DB SELECT + storage stat)
+  instead of returning a static `{ok: true}`.
+- **`/api/internal/*`** router (`app/routers/internal.py`) —
+  bearer-gated (`X-Internal-Secret`) endpoints for cron jobs to trigger
+  reindex, plus a Telegram-bot webhook (authed via Telegram's own
+  `X-Telegram-Bot-Api-Secret-Token` header) exposing `/sync`, `/status`,
+  `/help` to the operator's allowlisted chat.
+
+### Added — frontend & brand
+- **Brand assets** — `web/public/brand/{mark,wordmark}/{on-light,on-dark}.svg`,
+  rendered via the new `<Wordmark>` React component
+  (`web/src/components/brand/wordmark.tsx`) and embedded in the README
+  header.
+- **Landing page** at `/` (`web/src/routes/landing.tsx` +
+  `web/src/styles/landing.css`): hero with auto-rotating five-theme
+  carousel, animated MCP / Day-0 demo, real Claude Desktop screenshots,
+  self-host terminal block, GitHub-stars CTA, floating navbar that
+  hides on scroll-down. All CTAs link to the GitHub repo — no waitlist
+  or signup.
+- **`VITE_SHOW_LANDING`** env flag (default `false`) — when `true`, `/`
+  renders the landing page; when `false`, `/` redirects straight to the
+  app (`/app` if signed in, `/login` otherwise). Self-hosters typically
+  leave it off.
+- **`scripts/build-seo.mjs`** — Vite prebuild step that regenerates
+  `robots.txt`, `sitemap.xml`, and `manifest.webmanifest` from
+  `VITE_SITE_URL` / `VITE_SITE_NAME`. Forks deploying to a custom domain
+  get correct canonical URLs and PWA metadata without code edits.
+- **SEO + PWA assets** — `web/public/og-card.png`, `apple-touch-icon.png`,
+  `icon-192/256/512.png`, `security.txt`, `manifest.webmanifest`.
+- **TOTP / 2FA** for the dashboard login
+  (`web/src/components/settings/totp-card.tsx`, baked into the baseline
+  migration). Setup-key + QR + recovery-code flow inside Settings.
+- **Multi-language `<title>` and `<html lang>`** via
+  `web/src/lib/document-head.ts` — switches between EN / DE based on
+  the active i18n locale.
+
+### Changed
+- **`POSTGREST_URL` / `POSTGREST_API_KEY`** env vars replace
+  `SUPABASE_URL` / `SUPABASE_SERVICE_KEY`. Breaking change for anyone
+  upgrading from v0.3.x — see migration notes below.
+- **`POSTGREST_AUTH`** flag — set to `false` to skip Bearer auth headers
+  when targeting a self-hosted PostgREST that has JWT validation off.
+- **`app/db.py`** — function renamed `supabase()` → `client()`. All
+  service files migrated to `from app.db import client`.
+- **`/api/internal/sync`** — runs reindexing in a FastAPI background
+  task instead of spawning subprocesses. The `mode` query parameter is
+  still accepted (and echoed back) for caller compatibility, but no
+  longer affects behaviour.
+- **README**, **INSTALL.md**, **CONTRIBUTING.md**, **`.env.example`**
+  all rewritten around the docker-compose deploy. README header shows
+  the OpenStudy wordmark with auto light / dark variants instead of a
+  plain heading; database badge updated from "Supabase Postgres" to
+  "Postgres 16".
+- **`PUBLIC_SITE_URL`** is the single source of truth for the domain
+  baked into canonical / OG / sitemap / manifest tags. Previous default
+  `openstudy.dev` removed; default is now `http://localhost:8080` so
+  forks don't accidentally ship with someone else's domain.
+- **`N8N_MOODLE_WEBHOOK_URL`** has no default any more — endpoints that
+  use it 503 with a helpful message when unset, instead of trying to
+  hit a hardcoded host.
+
+### Removed
+- **Vercel artefacts** — `vercel.json`, the `api/index.py` shim, related
+  `.vercel/` config. Vercel was retired as a host; the "build dist +
+  rsync to a static web server" deploy path is gone too.
+- **Supabase-specific layout** — top-level `supabase/` folder. Migrations
+  live under `migrations/` now.
+- **Bucket-sync scripts** — `force_push_to_bucket.py`, `sync.py`,
+  `openstudy.py`, the bidirectional CONFLICT-DEL-REMOTE state machine.
+  With local filesystem storage there's nothing to mirror to a separate
+  object store. Moved to `scripts/_deprecated/` for reference.
+- **`TRADEMARK.md`** — the project ships under MIT only, with no
+  separate trademark policy. Self-host rebranding guidance now lives
+  in CONTRIBUTING.md (`VITE_SITE_URL` / `VITE_SITE_NAME` + brand assets).
+
+### Migration notes (upgrading from v0.3.x)
+
+This is a breaking release. If you're moving an existing OpenStudy
+install over from Supabase + Vercel:
+
+1. `pg_dump` your Supabase database and restore it into the new local
+   Postgres before first running `./deploy.sh` against real users — see
+   [INSTALL.md §4](./INSTALL.md#restoring-data-into-a-fresh-box).
+2. Rename `SUPABASE_URL` → `POSTGREST_URL` and `SUPABASE_SERVICE_KEY` →
+   `POSTGREST_API_KEY` in your `.env`. Add a new `.env.docker` next to
+   it with `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` for the
+   database container.
+3. Move your course files into the path you'll mount as `STUDY_ROOT` in
+   the compose file (default `/opt/courses`).
+4. Make sure the `courses.folder_name` column is populated for every
+   course — it's now the source of truth that `/api/files/lecture-materials`
+   and the file browser use to map a course code to its on-disk folder
+   (replaces the previously hardcoded mapping).
+5. Drop your Vercel deployment once the new docker host is healthy.
+   Point your domain at the new outer reverse proxy.
+
 ## [v0.3.0] — 2026-04-21
 
 Big visual + localization release. Five dashboard themes, full English/German
@@ -63,6 +206,7 @@ cd web && pnpm install && pnpm build
 The migration adds `app_settings.theme` with default `'editorial'`, so
 existing rows land on the Classic theme until you pick something else.
 
+[v0.5.0]: https://github.com/openstudy-dev/OpenStudy/releases/tag/v0.5.0
 [v0.3.0]: https://github.com/openstudy-dev/OpenStudy/releases/tag/v0.3.0
 
 ## [v0.2.0] — 2026-04-20

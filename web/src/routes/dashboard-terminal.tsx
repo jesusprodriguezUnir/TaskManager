@@ -399,7 +399,7 @@ export function TerminalDashboard() {
             return (
               <Link
                 key={c.code}
-                to={`/courses/${c.code}`}
+                to={`/app/courses/${c.code}`}
                 className="tm-ccard"
                 data-idx={`${pad(i + 1)}/${pad(data.courses.length)}`}
                 style={{ "--accent": courseVar(c.code) } as React.CSSProperties}
@@ -522,7 +522,7 @@ function TerminalWeekGrid({
               .map((s) => (
                 <Link
                   key={s.id}
-                  to={`/courses/${s.course_code}?tab=schedule`}
+                  to={`/app/courses/${s.course_code}?tab=schedule`}
                   className="tm-blk"
                   style={
                     {
@@ -579,7 +579,7 @@ function TerminalDeadlines({
             key={d.id}
             className="tm-row"
             style={{ "--accent": courseVar(d.course_code) } as React.CSSProperties}
-            onClick={() => navigate(`/courses/${d.course_code}`)}
+            onClick={() => navigate(`/app/courses/${d.course_code}`)}
           >
             <span className="tm-ct">{d.course_code}</span>
             <div style={{ minWidth: 0 }}>

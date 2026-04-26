@@ -9,7 +9,7 @@ This file just has a couple of notes so you know what to expect and we can keep 
 Basically anything that makes the app better for someone self-hosting it. A non-exhaustive list of things I'd love help with:
 
 - **Bug fixes** — obvious one. If you hit a bug, please file an issue even if you can't fix it yourself.
-- **Self-host polish** — clearer docs, better error messages when an env var is missing, a `docker-compose.yml`, one-click deploy buttons for hosts other than Vercel (Fly, Railway, self-hosted Postgres, etc.).
+- **Self-host polish** — clearer docs, better error messages when an env var is missing, packaging niceties (a Helm chart, a one-click deploy button for popular PaaS, a `compose.override.yml` template for common variations).
 - **Accessibility + keyboard shortcuts** — the UI is dark, dense, and keyboard-navigable-ish, but could be better.
 - **i18n / localization** — the Slot `kind` labels are German (`Vorlesung`, `Übung`) by default. Making those user-configurable or translatable would help non-EU users a lot.
 - **New MCP tools** — if you find yourself wishing Claude could do `X` and there's a natural way to expose it, just add it. Pattern is in `app/mcp_tools.py`.
@@ -21,7 +21,7 @@ Basically anything that makes the app better for someone self-hosting it. A non-
 Not "no" — just "let's talk first so you don't waste a weekend":
 
 - Major framework swaps (React → Svelte, FastAPI → Django).
-- Removing Supabase (doable, but touches auth + storage + Postgres all at once).
+- Replacing PostgREST with a hand-rolled SQLAlchemy / asyncpg layer (the postgrest-py shim is small but it's load-bearing — every service file goes through it).
 - New top-level entities beyond the current data model (Course / Schedule slot / Lecture / Study topic / Deliverable / Task / Klausur).
 - Multi-user / team / sharing features — the single-user-per-deploy assumption is load-bearing in a bunch of places, and shifting it is a big project.
 
@@ -32,9 +32,13 @@ A one-liner issue like *"would you take a PR that X?"* is all it takes.
 See [INSTALL.md](./INSTALL.md) for the full walkthrough. TL;DR:
 
 ```bash
-uv sync
-cp .env.example .env   # fill in Supabase creds, APP_PASSWORD_HASH, SESSION_SECRET
-uv run uvicorn app.main:app --reload
+cp .env.example .env                 # fill APP_PASSWORD_HASH, SESSION_SECRET
+cat > .env.docker <<EOF              # Postgres credentials
+POSTGRES_USER=openstudy
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
+POSTGRES_DB=openstudy
+EOF
+./deploy.sh                          # builds + brings up postgres + postgrest + openstudy
 
 cd web && pnpm install && pnpm dev
 ```
@@ -54,11 +58,11 @@ cd web && pnpm install && pnpm dev
 
 There's no automated test suite yet (honest). Until there is:
 
-- For backend changes: exercise the changed endpoint(s) manually via `curl` or the `/api/docs` Swagger UI, and check that the data round-trips through Supabase.
+- For backend changes: rebuild + restart the openstudy container (`./deploy.sh`), then exercise the changed endpoint(s) manually via `curl` or the `/api/docs` Swagger UI.
 - For frontend changes: run `pnpm build` to make sure TypeScript is still happy, then manually click through the affected views in `pnpm dev`.
-- For MCP tool changes: start the backend (`uv run uvicorn app.main:app --reload`), then either hit the tool via a `POST /mcp` JSON-RPC request with your bearer token (see `curl` snippet in `INSTALL.md`), or register the local endpoint with Claude Code (`claude mcp add --transport http openstudy-local http://localhost:8000/mcp`) and call the tool in chat.
+- For MCP tool changes: rebuild via `./deploy.sh`, then either hit the tool via a `POST /mcp` JSON-RPC request with your bearer token, or register the local endpoint with Claude Code (`claude mcp add --transport http openstudy-local http://localhost:8000/mcp`) and call the tool in chat.
 
-If you're up for adding test infrastructure (pytest + a Supabase mock, Vitest for the frontend), that itself is a welcome PR.
+If you're up for adding test infrastructure (pytest + a Postgres testcontainer, Vitest for the frontend), that itself is a welcome PR.
 
 ## Submitting a PR
 
@@ -67,6 +71,12 @@ If you're up for adding test infrastructure (pytest + a Supabase mock, Vitest fo
 3. Push and open a PR against `main`.
 4. In the PR description, include: what the change does, how you tested it, anything reviewers should pay attention to.
 5. Be patient — this is a side project. Responses may take a few days.
+
+## Self-host rebranding
+
+If you're running a public deploy of this code, the frontend reads `VITE_SITE_URL` and `VITE_SITE_NAME` from the environment so you can set your own domain + display name without code edits — `scripts/build-seo.mjs` regenerates `robots.txt`, `sitemap.xml`, and `manifest.webmanifest` from those vars at build time. The brand assets under `web/public/brand/` are also a single drop-in path if you want to swap the wordmark for your own.
+
+PRs that improve the `VITE_SITE_*` plumbing or make rebranding easier are welcome.
 
 ## License
 

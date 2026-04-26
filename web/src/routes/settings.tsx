@@ -10,8 +10,10 @@ import {
   LogOut,
   Palette,
   RefreshCw,
+  ShieldCheck,
   User,
 } from "lucide-react";
+import { TotpCard } from "@/components/settings/totp-card";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -89,11 +91,15 @@ export default function Settings() {
         <Section icon={<Activity className="h-4 w-4" />} title={t("settings.sections.activity")}>
           <p className="text-sm text-muted mb-3">{t("settings.activity.body")}</p>
           <Link
-            to="/activity"
+            to="/app/activity"
             className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-surface-2 hover:bg-surface-2/80 px-3 py-2 text-sm font-medium transition-colors"
           >
             {t("settings.activity.openLog")} <ChevronRight className="h-4 w-4" />
           </Link>
+        </Section>
+
+        <Section icon={<ShieldCheck className="h-4 w-4" />} title={t("settings.sections.security", "Security")}>
+          <TotpCard />
         </Section>
 
         <Section icon={<LogOut className="h-4 w-4" />} title={t("settings.sections.session")}>

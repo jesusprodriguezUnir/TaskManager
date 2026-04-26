@@ -17,6 +17,7 @@ import {
   Trash2,
   BookOpen,
   CheckCircle2,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/layout/header";
@@ -48,10 +49,12 @@ import { DeliverableForm } from "@/components/forms/deliverable-form";
 import { LectureForm } from "@/components/forms/lecture-form";
 import { SlotForm } from "@/components/forms/slot-form";
 import { FileBrowser } from "@/components/files/file-browser";
+import { FileViewer } from "@/components/files/file-viewer";
 import {
   useCompleteTask,
   useDashboard,
   useDeleteLecture,
+  useLectureMaterials,
   useMarkDeliverableSubmitted,
   useMarkStudied,
   useReopenDeliverable,
@@ -111,7 +114,7 @@ export default function CourseDetail() {
   }
 
   const course = data.courses.find((c) => c.code === normalized);
-  if (!course) return <Navigate to="/courses" replace />;
+  if (!course) return <Navigate to="/app/courses" replace />;
 
   const c = course.code as CourseCode;
   const courseSlots = data.slots.filter((s) => s.course_code === c);
@@ -147,7 +150,7 @@ export default function CourseDetail() {
 
       <div className="px-4 md:px-8 pt-4 max-w-[1200px] mx-auto w-full">
         <Link
-          to="/courses"
+          to="/app/courses"
           className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> All courses
@@ -728,8 +731,10 @@ function LecturesTab({
   const { t } = useTranslation();
   const [editing, setEditing] = useState<Lecture | null>(null);
   const [creating, setCreating] = useState(false);
+  const [openMaterial, setOpenMaterial] = useState<string | null>(null);
   const toggle = useToggleLectureAttended();
   const del = useDeleteLecture();
+  const materials = useLectureMaterials(courseCode);
 
   const sorted = [...lectures].sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
 
@@ -760,6 +765,9 @@ function LecturesTab({
         <div className="flex flex-col gap-3">
           {sorted.map((l) => {
             const linkedTopics = topics.filter((t) => t.lecture_id === l.id);
+            const lectureFiles = l.number != null
+              ? (materials.data?.[String(l.number)] ?? [])
+              : [];
             return (
               <div key={l.id} className="card p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -823,6 +831,22 @@ function LecturesTab({
                     ))}
                   </ul>
                 )}
+
+                {lectureFiles.length > 0 && (
+                  <div className="mt-3 pl-10 flex flex-wrap gap-1.5">
+                    {lectureFiles.map((f) => (
+                      <button
+                        key={f.path}
+                        type="button"
+                        onClick={() => setOpenMaterial(f.path)}
+                        className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded border border-border/50 bg-surface-2 hover:bg-surface-2/70 text-muted hover:text-fg transition-colors"
+                      >
+                        <FileText className="h-3 w-3 text-critical" />
+                        <span className="truncate max-w-[16rem]">{f.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -840,6 +864,8 @@ function LecturesTab({
         lecture={editing}
         courseCode={courseCode}
       />
+
+      {openMaterial && <FileViewer path={openMaterial} onClose={() => setOpenMaterial(null)} />}
     </div>
   );
 }

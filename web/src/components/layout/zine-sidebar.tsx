@@ -7,6 +7,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAppSettings, useCourses } from "@/lib/queries";
+import { Wordmark } from "@/components/brand/wordmark";
 
 function cv(code: string) { return `var(--course-${code.toLowerCase()})`; }
 
@@ -97,23 +98,23 @@ export function ZineSidebar() {
       </div>
 
       <div className="z-lbl">~ {t("nav.pages").toLowerCase()} ~</div>
-      <ZLink to="/" end>
+      <ZLink to="/app" end>
         <span className="z-ic"><Icon name="home" /></span>
         <span>{t("nav.today").toLowerCase()}</span>
       </ZLink>
-      <ZLink to="/courses" end>
+      <ZLink to="/app/courses" end>
         <span className="z-ic"><Icon name="book" /></span>
         <span>{t("nav.courses").toLowerCase()}</span>
       </ZLink>
-      <ZLink to="/tasks">
+      <ZLink to="/app/tasks">
         <span className="z-ic"><Icon name="inbox" /></span>
         <span>{t("nav.tasks").toLowerCase()}</span>
       </ZLink>
-      <ZLink to="/exams">
+      <ZLink to="/app/exams">
         <span className="z-ic"><Icon name="flask" /></span>
         <span>{t("nav.exams").toLowerCase()}</span>
       </ZLink>
-      <ZLink to="/files">
+      <ZLink to="/app/files">
         <span className="z-ic"><Icon name="folder" /></span>
         <span>{t("nav.files").toLowerCase()}</span>
       </ZLink>
@@ -124,7 +125,7 @@ export function ZineSidebar() {
         return (
           <ZLink
             key={c.code}
-            to={`/courses/${c.code}`}
+            to={`/app/courses/${c.code}`}
             className="z-course"
             style={{ "--accent": cv(c.code) } as CSSProperties}
           >
@@ -140,14 +141,27 @@ export function ZineSidebar() {
       })}
 
       <div className="z-lbl">~ {t("nav.archive").toLowerCase()} ~</div>
-      <ZLink to="/activity">
+      <ZLink to="/app/activity">
         <span className="z-ic"><Icon name="pulse" /></span>
         <span>{t("nav.activity").toLowerCase()}</span>
       </ZLink>
-      <ZLink to="/settings">
+      <ZLink to="/app/settings">
         <span className="z-ic"><Icon name="cog" /></span>
         <span>{t("nav.settings").toLowerCase()}</span>
       </ZLink>
+
+      <div
+        style={{
+          marginTop: "auto",
+          paddingTop: 24,
+          paddingBottom: 8,
+          display: "flex",
+          justifyContent: "center",
+          opacity: 0.4,
+        }}
+      >
+        <Wordmark style={{ height: 18, width: "auto" }} />
+      </div>
     </aside>
   );
 }

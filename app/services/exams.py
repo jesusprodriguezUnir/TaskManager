@@ -1,17 +1,17 @@
 from typing import List
-from ..db import supabase
+from ..db import client
 from ..schemas import Exam, ExamPatch
 from ._helpers import model_dump_clean
 
 
 def list_exams() -> List[Exam]:
-    resp = supabase().table("exams").select("*").execute()
+    resp = client().table("exams").select("*").execute()
     return [Exam.model_validate(r) for r in resp.data or []]
 
 
 def get_exam(course_code: str) -> Exam | None:
     resp = (
-        supabase()
+        client()
         .table("exams")
         .select("*")
         .eq("course_code", course_code)
@@ -28,11 +28,11 @@ def update_exam(course_code: str, patch: ExamPatch) -> Exam:
     existing = get_exam(course_code)
     if existing is None:
         payload = {"course_code": course_code, **data}
-        resp = supabase().table("exams").insert(payload).execute()
+        resp = client().table("exams").insert(payload).execute()
     else:
         if not data:
             return existing
         resp = (
-            supabase().table("exams").update(data).eq("course_code", course_code).execute()
+            client().table("exams").update(data).eq("course_code", course_code).execute()
         )
     return Exam.model_validate(resp.data[0])

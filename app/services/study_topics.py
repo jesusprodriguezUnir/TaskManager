@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from ..db import supabase
+from ..db import client
 from ..schemas import LectureTopicsAdd, StudyTopic, StudyTopicCreate, StudyTopicPatch
 from ._helpers import model_dump_clean
 
@@ -10,7 +10,7 @@ def list_study_topics(
     course_code: Optional[str] = None, status: Optional[str] = None
 ) -> List[StudyTopic]:
     q = (
-        supabase()
+        client()
         .table("study_topics")
         .select("*")
         .order("course_code")
@@ -25,7 +25,7 @@ def list_study_topics(
 
 
 def create_study_topic(payload: StudyTopicCreate) -> StudyTopic:
-    resp = supabase().table("study_topics").insert(model_dump_clean(payload)).execute()
+    resp = client().table("study_topics").insert(model_dump_clean(payload)).execute()
     return StudyTopic.model_validate(resp.data[0])
 
 
@@ -36,7 +36,7 @@ def update_study_topic(topic_id: str, patch: StudyTopicPatch) -> StudyTopic:
     if data.get("status") in ("studied", "mastered"):
         data["last_reviewed_at"] = datetime.now(timezone.utc).isoformat()
     resp = (
-        supabase().table("study_topics").update(data).eq("id", topic_id).execute()
+        client().table("study_topics").update(data).eq("id", topic_id).execute()
     )
     if not resp.data:
         raise ValueError(f"study topic {topic_id} not found")
@@ -44,7 +44,7 @@ def update_study_topic(topic_id: str, patch: StudyTopicPatch) -> StudyTopic:
 
 
 def delete_study_topic(topic_id: str) -> None:
-    supabase().table("study_topics").delete().eq("id", topic_id).execute()
+    client().table("study_topics").delete().eq("id", topic_id).execute()
 
 
 def add_lecture_topics(payload: LectureTopicsAdd) -> List[StudyTopic]:
@@ -70,5 +70,5 @@ def add_lecture_topics(payload: LectureTopicsAdd) -> List[StudyTopic]:
             "sort_order": t.get("sort_order", idx),
         }
         rows.append({k: v for k, v in row.items() if v is not None})
-    resp = supabase().table("study_topics").insert(rows).execute()
+    resp = client().table("study_topics").insert(rows).execute()
     return [StudyTopic.model_validate(r) for r in resp.data or []]
