@@ -496,6 +496,12 @@
   left: 50%;
   bottom: 50%;
   transform: translate(-50%, -10px);  /* sit just above the center line */
+  /* Solid card-colored background interrupts the connecting line cleanly,
+     so the label reads as a labelled break instead of overlapping the line.
+     Important on mobile where the line is vertical and passes through the label. */
+  padding: 2px 8px;
+  background: var(--paper-raise);
+  border-radius: 4px;
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -535,6 +541,16 @@
     top: 0;
     left: -3px;
     animation: mcp-bounce-v 3.4s ease-in-out infinite;
+  }
+  /* Vertical line on mobile — label sits to the LEFT of the line so the
+     two never overlap. Background still set so the dot can pass behind it
+     cleanly when bouncing past the label's vertical position. */
+  .landing .mcp-arrow-label {
+    left: auto;
+    right: calc(50% + 8px);
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%);
   }
 }
 
