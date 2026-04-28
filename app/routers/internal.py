@@ -10,6 +10,7 @@ The `/telegram` endpoint is special: it's authenticated by Telegram's own
 """
 import logging
 import os
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
@@ -18,6 +19,13 @@ from ..services import file_index as file_index_svc
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 log = logging.getLogger(__name__)
+
+# Shared pause flag for the Moodle scrape cron. Lives on the bind-mounted
+# course-files directory so both this container and the n8n container can
+# see it (n8n sees the same file at /var/courses/.moodle_cron_paused).
+# When present, n8n's schedule-triggered runs skip the scrape; manual /sync
+# via webhook always runs regardless.
+PAUSE_FLAG = Path(os.environ.get("STUDY_ROOT", "/opt/courses")) / ".moodle_cron_paused"
 
 
 def _check_secret(provided: str | None) -> None:
@@ -111,11 +119,16 @@ async def telegram_webhook(
     cmd = text.split()[0].lower()
 
     if cmd in ("/start", "/help"):
+        state = "⏸ paused" if PAUSE_FLAG.exists() else "▶ active"
         await _send_telegram(token, chat_id,
             "Available commands:\n"
-            "/sync — pull new files from Moodle (~8s)\n"
-            "/status — recent activity summary\n"
-            "/help — this message"
+            "/sync — pull new files from Moodle now (~8s, works whether paused or not)\n"
+            "/pause — pause the 30-min auto-cron\n"
+            "/resume — re-enable the 30-min auto-cron\n"
+            "/status — show cron state\n"
+            "/help — this message\n"
+            "\n"
+            f"Cron currently: {state}"
         )
     elif cmd == "/sync":
         webhook_url = os.environ.get("N8N_MOODLE_WEBHOOK_URL", "").strip()
@@ -139,29 +152,29 @@ async def telegram_webhook(
         except Exception as exc:
             msg_text = f"❌ Sync failed: {exc}"
         await _send_telegram(token, chat_id, msg_text)
-    elif cmd == "/status":
-        # Quick status: timer states + last execution time
+    elif cmd == "/pause":
         try:
-            t1 = subprocess.run(
-                ["systemctl", "is-active", "openstudy.service"],
-                capture_output=True, text=True, timeout=5,
-            ).stdout.strip()
-            t2 = subprocess.run(
-                ["systemctl", "is-active", "openstudy-sync.timer"],
-                capture_output=True, text=True, timeout=5,
-            ).stdout.strip()
-            t3 = subprocess.run(
-                ["systemctl", "is-active", "openstudy-backup.timer"],
-                capture_output=True, text=True, timeout=5,
-            ).stdout.strip()
+            PAUSE_FLAG.parent.mkdir(parents=True, exist_ok=True)
+            PAUSE_FLAG.touch()
             await _send_telegram(token, chat_id,
-                f"📊 Status\n"
-                f"backend: {t1}\n"
-                f"sync timer: {t2}\n"
-                f"backup timer: {t3}"
-            )
+                "⏸ Moodle cron paused. The 30-min auto-cron is suspended.\n"
+                "Use /sync to scrape now, /resume to re-enable.")
         except Exception as exc:
-            await _send_telegram(token, chat_id, f"status check failed: {exc}")
+            await _send_telegram(token, chat_id, f"❌ Could not write pause flag: {exc}")
+    elif cmd == "/resume":
+        try:
+            PAUSE_FLAG.unlink(missing_ok=True)
+            await _send_telegram(token, chat_id,
+                "▶ Moodle cron resumed. Will fire on the next 30-min interval.")
+        except Exception as exc:
+            await _send_telegram(token, chat_id, f"❌ Could not remove pause flag: {exc}")
+    elif cmd == "/status":
+        paused = PAUSE_FLAG.exists()
+        state = "⏸ paused" if paused else "▶ active"
+        flag_info = f"flag at {PAUSE_FLAG}" if paused else "no pause flag"
+        await _send_telegram(token, chat_id,
+            f"📊 Moodle cron: {state}\n{flag_info}"
+        )
     else:
         await _send_telegram(token, chat_id, f"Unknown command: {cmd}\nTry /help")
 
