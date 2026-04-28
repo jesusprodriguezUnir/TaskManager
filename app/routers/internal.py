@@ -136,22 +136,19 @@ async def telegram_webhook(
             await _send_telegram(token, chat_id,
                 "Sync unavailable: N8N_MOODLE_WEBHOOK_URL is not configured.")
             return {"ok": True}
+        # The n8n workflow sends its own rich HTML summary at the end of the
+        # run (same format as the scheduled cron). Bot stays quiet on success
+        # to avoid a redundant short summary; only "🔄 Syncing…" up front for
+        # instant feedback, plus error handling if the webhook itself breaks.
         await _send_telegram(token, chat_id, "🔄 Syncing with Moodle…")
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.get(webhook_url)
-            data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-            written = len((data.get("applied") or {}).get("written") or [])
-            errors = (data.get("planSummary") or {}).get("errors", 0)
-            if errors:
-                msg_text = f"⚠️ Sync finished with {errors} error(s); {written} new files"
-            elif written:
-                msg_text = f"✅ Sync complete — {written} new files"
-            else:
-                msg_text = "✅ Sync complete — already up to date"
+            if resp.status_code >= 400:
+                await _send_telegram(token, chat_id,
+                    f"❌ Sync webhook returned HTTP {resp.status_code}")
         except Exception as exc:
-            msg_text = f"❌ Sync failed: {exc}"
-        await _send_telegram(token, chat_id, msg_text)
+            await _send_telegram(token, chat_id, f"❌ Sync failed: {exc}")
     elif cmd == "/pause":
         try:
             PAUSE_FLAG.parent.mkdir(parents=True, exist_ok=True)
