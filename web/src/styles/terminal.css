@@ -5,7 +5,8 @@
    leaks into the editorial design.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap');
+/* Fonts (JetBrains Mono, IBM Plex Mono) load from index.html's combined
+   Google Fonts <link>. */
 
 :root[data-theme="terminal"] {
   --tm-font: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;

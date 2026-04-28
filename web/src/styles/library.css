@@ -4,7 +4,8 @@
    All selectors under [data-theme="library"] so styles can't leak.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Special+Elegant&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+/* Fonts (Special Elegant fallback, Cormorant Garamond, IBM Plex Mono) load
+   from index.html's combined Google Fonts <link>. */
 
 :root[data-theme="library"] {
   --l-paper:    #f2ead6;

@@ -5,7 +5,8 @@
    leak into other themes.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800;900&family=Caveat:wght@500;600;700&family=DM+Mono:wght@400;500&display=swap');
+/* Fonts (Work Sans, Caveat, DM Mono) load from index.html's combined Google
+   Fonts <link> so theme switches don't trigger fresh CSS+woff2 fetches. */
 
 :root[data-theme="zine"] {
   --z-cream:    #f4ecda;

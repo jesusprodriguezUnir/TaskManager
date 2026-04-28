@@ -5,7 +5,8 @@
    All selectors scoped under [data-theme="swiss"].
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* Fonts (Inter Tight, JetBrains Mono) load from index.html's combined Google
+   Fonts <link>. */
 
 :root[data-theme="swiss"] {
   --s-bg:    #f4f3ef;

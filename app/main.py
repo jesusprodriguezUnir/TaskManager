@@ -1,8 +1,16 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import get_settings
+
+# httpx logs every outbound request URL at INFO ("HTTP Request: POST <url>"),
+# which leaked the Telegram bot token and n8n webhook path into docker logs
+# (rotated 2026-04-28). Bumping the logger to WARNING keeps error/timeout
+# diagnostics but suppresses the per-request URL line.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 from .mcp_http import build_mcp_http_app
 from .routers import (
     auth as auth_router,

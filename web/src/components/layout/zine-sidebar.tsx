@@ -7,6 +7,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAppSettings, useCourses } from "@/lib/queries";
+import { prefetchRoute } from "@/lib/prefetch";
 function cv(code: string) { return `var(--course-${code.toLowerCase()})`; }
 
 function initials(name: string): string {
@@ -70,8 +71,17 @@ function ZLink({
 }) {
   const loc = useLocation();
   const isActive = end ? loc.pathname === to : loc.pathname === to || loc.pathname.startsWith(to + "/");
+  const prefetch = () => prefetchRoute(to);
   return (
-    <Link to={to} className={className} data-active={isActive} style={style}>
+    <Link
+      to={to}
+      className={className}
+      data-active={isActive}
+      style={style}
+      onMouseEnter={prefetch}
+      onFocus={prefetch}
+      onTouchStart={prefetch}
+    >
       {children}
     </Link>
   );

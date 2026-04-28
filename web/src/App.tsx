@@ -53,10 +53,10 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <QueryProvider>
-      {/* Suspense catches the lazy-loaded /app routes while their chunks
-          download. Fallback null = blank background tile briefly; users
-          arriving at /app are usually authed already so the chunk is in
-          cache. Could swap for a skeleton loader if cold-start UX needs it. */}
+      {/* Outer Suspense only catches the AppShell chunk on first /app visit.
+          Sub-route chunks (Dashboard, Courses, …) are caught by an inner
+          Suspense inside AppShell, so the sidebar + header stay mounted
+          across navigation instead of the whole tree blanking. */}
       <Suspense fallback={null}>
         <RouterProvider router={router} />
       </Suspense>

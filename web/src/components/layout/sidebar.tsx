@@ -14,6 +14,13 @@ import { courseAccentVar } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 import type { CourseCode } from "@/data/types";
 import { semesterWeek } from "@/lib/time";
+import { prefetchRoute } from "@/lib/prefetch";
+
+// Hover/focus/touch handlers for prefetching the lazy chunk that backs `to`.
+function prefetchHandlers(to: string) {
+  const fn = () => prefetchRoute(to);
+  return { onMouseEnter: fn, onFocus: fn, onTouchStart: fn };
+}
 
 function deriveMonogram(name: string | null | undefined, fallback: string): string {
   if (!name) return fallback;
@@ -131,6 +138,7 @@ export function Sidebar() {
               <NavLink
                 key={c.code}
                 to={`/app/courses/${c.code}`}
+                {...prefetchHandlers(`/app/courses/${c.code}`)}
                 className={({ isActive }) =>
                   cn(
                     "group flex items-center gap-[10px] px-[10px] py-2 rounded-md transition-colors relative",
@@ -227,6 +235,7 @@ function SidebarLink({
     <NavLink
       to={to}
       end={end}
+      {...prefetchHandlers(to)}
       className={({ isActive }) =>
         cn(
           "group relative flex items-center gap-[10px] px-[10px] py-[7px] rounded-md text-[13px] transition-colors whitespace-nowrap",
@@ -271,6 +280,7 @@ export function BottomNav() {
             <NavLink
               to={item.to}
               end={item.end}
+              {...prefetchHandlers(item.to)}
               className={({ isActive }) =>
                 cn(
                   "flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] touch-target",

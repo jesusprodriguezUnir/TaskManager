@@ -15,8 +15,18 @@ web/dist/
 .env.local
 .env.production
 .env.development
+.env.docker
 .env.*.local
 !.env.example
+
+# local dev compose override (per-laptop; don't ship — it'd auto-load on
+# self-hosters' machines and override their prod setup)
+docker-compose.override.yml
+docker-compose.override.yaml
+_dev/
+
+# playwright MCP runtime scratch (snapshots, console dumps)
+.playwright-mcp/
 
 # python
 __pycache__/

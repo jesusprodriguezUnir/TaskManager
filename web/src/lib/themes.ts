@@ -59,10 +59,23 @@ export function applyTheme(raw: string | null | undefined): void {
   // Prefer the explicit value; fall back to whatever the browser last saw so
   // reloads don't reset to Editorial while the API round-trip catches up.
   const id = normalizeTheme(raw ?? readStoredTheme() ?? undefined);
-  document.documentElement.dataset.theme = id;
-  try {
-    localStorage.setItem(STORAGE_KEY, id);
-  } catch {
-    /* ignore quota / privacy-mode failures */
+  const apply = () => {
+    document.documentElement.dataset.theme = id;
+    try {
+      localStorage.setItem(STORAGE_KEY, id);
+    } catch {
+      /* ignore quota / privacy-mode failures */
+    }
+  };
+  // View Transitions API (Chrome/Edge/Safari 18+) cross-fades between the
+  // before/after states, hiding the layout reflow when sidebars + grids
+  // re-shape themselves. Firefox falls through to the instant apply.
+  const startTransition = (
+    document as Document & { startViewTransition?: (cb: () => void) => unknown }
+  ).startViewTransition;
+  if (typeof startTransition === "function") {
+    startTransition.call(document, apply);
+  } else {
+    apply();
   }
 }
