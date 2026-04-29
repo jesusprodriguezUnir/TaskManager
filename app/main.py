@@ -1,9 +1,11 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from . import db as db_module
 from .config import get_settings
 
 # httpx logs every outbound request URL at INFO ("HTTP Request: POST <url>"),
@@ -12,6 +14,21 @@ from .config import get_settings
 # diagnostics but suppresses the per-request URL line.
 logging.getLogger("httpx").setLevel(logging.WARNING)
 from .mcp_http import build_mcp_http_app
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Manage the Postgres pool's lifecycle. Opens on startup, closes on shutdown.
+
+    Test environments swap `app.db._pool` directly via monkeypatch (see
+    tests/conftest.py) and skip this lifespan; init_pool() is idempotent
+    so calling it under those conditions is harmless either way.
+    """
+    await db_module.init_pool()
+    try:
+        yield
+    finally:
+        await db_module.close_pool()
 from .routers import (
     auth as auth_router,
     dashboard as dashboard_router,
@@ -48,6 +65,7 @@ def create_app() -> FastAPI:
         docs_url="/api/docs" if settings.expose_docs else None,
         redoc_url=None,
         openapi_url="/api/openapi.json" if settings.expose_docs else None,
+        lifespan=_lifespan,
     )
 
     app.add_middleware(
