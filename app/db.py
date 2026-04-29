@@ -1,30 +1,22 @@
 """Postgres data access for the FastAPI backend.
 
-Two coexisting interfaces during the PostgREST → direct-Postgres migration:
+Async pool (psycopg3) + helper functions (`fetch`, `fetchrow`, `fetchval`,
+`execute`, `db()`). Pool lifecycle is owned by `app/main.py`'s lifespan —
+`init_pool()` on startup, `close_pool()` on shutdown.
 
-- **NEW (preferred):** async pool + helper functions (`fetch`, `fetchrow`,
-  `fetchval`, `execute`, `db()`). Backed by psycopg3's AsyncConnectionPool.
-  All new code uses this; migrated services use this.
-
-- **LEGACY (`client()`):** synchronous PostgREST shim. Still here so
-  un-migrated services keep working during the transition. Removed at
-  the end of Batch C1 (Phase 3).
-
-Pool lifecycle is owned by `app/main.py`'s lifespan — `init_pool()` on
-startup, `close_pool()` on shutdown.
+Services and routers should always go through these helpers; opening
+connections by hand defeats the pool. For raw work that needs a transaction
+or cursor-level control, `async with db() as conn:` checks one out.
 """
 from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
-from functools import lru_cache
 from typing import Any
 
 from psycopg.adapt import Loader
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
-
-from .config import get_settings
 
 
 # ── new async pool ────────────────────────────────────────────────────────────
@@ -148,37 +140,3 @@ async def execute(sql: str, *args: Any) -> int:
     async with db() as conn, conn.cursor() as cur:
         await cur.execute(sql, args or None)
         return cur.rowcount
-
-
-# ── LEGACY postgrest client (removed at end of Batch C1 Phase 3) ──────────────
-
-@lru_cache
-def client() -> "_Client":
-    from postgrest import SyncPostgrestClient
-    s = get_settings()
-    if not s.postgrest_url:
-        raise RuntimeError("POSTGREST_URL must be set.")
-    rest_url = s.postgrest_url.rstrip("/")
-    headers: dict[str, str] = {}
-    if s.postgrest_auth:
-        if not s.postgrest_api_key:
-            raise RuntimeError(
-                "POSTGREST_API_KEY required when POSTGREST_AUTH=true."
-            )
-        headers = {
-            "apikey": s.postgrest_api_key,
-            "Authorization": f"Bearer {s.postgrest_api_key}",
-        }
-    pg = SyncPostgrestClient(rest_url, headers=headers)
-    return _Client(pg)
-
-
-class _Client:
-    """Shim exposing the same `.table(name)` / `.rpc(name, params)` API the
-    existing services use."""
-
-    def __init__(self, pg):
-        self._pg = pg
-
-    def table(self, name: str):
-        return self._pg.from_(name)
