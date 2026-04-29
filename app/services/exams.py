@@ -1,38 +1,60 @@
 from typing import List
-from ..db import client
+
+from .. import db
 from ..schemas import Exam, ExamPatch
 from ._helpers import model_dump_clean
 
 
-def list_exams() -> List[Exam]:
-    resp = client().table("exams").select("*").execute()
-    return [Exam.model_validate(r) for r in resp.data or []]
+async def list_exams() -> List[Exam]:
+    rows = await db.fetch("SELECT * FROM exams ORDER BY course_code")
+    return [Exam.model_validate(r) for r in rows]
 
 
-def get_exam(course_code: str) -> Exam | None:
-    resp = (
-        client()
-        .table("exams")
-        .select("*")
-        .eq("course_code", course_code)
-        .limit(1)
-        .execute()
+async def get_exam(course_code: str) -> Exam | None:
+    row = await db.fetchrow(
+        "SELECT * FROM exams WHERE course_code = %s LIMIT 1",
+        course_code,
     )
-    if not resp.data:
-        return None
-    return Exam.model_validate(resp.data[0])
+    return Exam.model_validate(row) if row else None
 
 
-def update_exam(course_code: str, patch: ExamPatch) -> Exam:
+async def update_exam(course_code: str, patch: ExamPatch) -> Exam:
+    """Per-course singleton upsert: insert if missing, update if present.
+
+    `course_code` is the primary key on `exams`, so ON CONFLICT (course_code)
+    routes the upsert in a single round-trip. An empty patch on an existing
+    row is a no-op (returns the row unchanged); on a missing row it inserts
+    a default exam keyed by course_code.
+    """
     data = model_dump_clean(patch)
-    existing = get_exam(course_code)
-    if existing is None:
-        payload = {"course_code": course_code, **data}
-        resp = client().table("exams").insert(payload).execute()
-    else:
-        if not data:
+
+    if not data:
+        # Empty patch: return existing row, or insert a defaults-only row.
+        existing = await get_exam(course_code)
+        if existing is not None:
             return existing
-        resp = (
-            client().table("exams").update(data).eq("course_code", course_code).execute()
+        row = await db.fetchrow(
+            "INSERT INTO exams (course_code) VALUES (%s) RETURNING *",
+            course_code,
         )
-    return Exam.model_validate(resp.data[0])
+        if row is None:
+            raise ValueError(f"failed to upsert exam for {course_code}")
+        return Exam.model_validate(row)
+
+    cols = list(data.keys())
+    insert_cols = ["course_code", *cols]
+    insert_placeholders = ", ".join(["%s"] * len(insert_cols))
+    update_set = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols)
+    sql = (
+        f"INSERT INTO exams ({', '.join(insert_cols)}) "
+        f"VALUES ({insert_placeholders}) "
+        f"ON CONFLICT (course_code) DO UPDATE SET {update_set} "
+        f"RETURNING *"
+    )
+    row = await db.fetchrow(sql, course_code, *[data[c] for c in cols])
+    if row is None:
+        raise ValueError(f"failed to upsert exam for {course_code}")
+    return Exam.model_validate(row)
+
+
+__all__ = ["list_exams", "get_exam", "update_exam"]
