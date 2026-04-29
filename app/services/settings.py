@@ -22,8 +22,16 @@ async def get_settings() -> AppSettings:
 
 
 async def update_settings(patch: AppSettingsPatch) -> AppSettings:
-    """Apply the patch to the singleton row. Insert with the patch applied if missing."""
-    data = patch.model_dump(mode="json", exclude_unset=True)
+    """Apply the patch to the singleton row. Insert with the patch applied if missing.
+
+    `exclude_none=True` matches the convention every other patch service
+    uses (courses, slots, lectures, …) — without it, a caller that passes
+    `timezone=None` would overwrite a valid timezone with NULL, which
+    then fails AppSettings re-validation. Caught by the MCP-tool tests
+    in Batch C2 — the `update_app_settings` MCP wrapper passes every
+    parameter (None included) into AppSettingsPatch.
+    """
+    data = patch.model_dump(mode="json", exclude_unset=True, exclude_none=True)
     if not data:
         return await get_settings()
 
