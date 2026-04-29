@@ -9,9 +9,9 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 @router.get("", response_model=AppSettings)
 async def get(_: bool = Depends(require_auth)) -> AppSettings:
-    return svc.get_settings()
+    return await svc.get_settings()
 
 
 @router.patch("", response_model=AppSettings)
 async def patch(body: AppSettingsPatch, _: bool = Depends(require_auth)) -> AppSettings:
-    return svc.update_settings(body)
+    return await svc.update_settings(body)
