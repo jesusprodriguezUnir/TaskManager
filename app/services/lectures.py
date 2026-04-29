@@ -2,6 +2,7 @@ from typing import List, Optional
 
 from .. import db
 from ..schemas import Lecture, LectureCreate, LecturePatch
+from ._helpers import validated_cols
 
 
 async def list_lectures(course_code: Optional[str] = None) -> List[Lecture]:
@@ -28,7 +29,7 @@ async def get_lecture(lecture_id: str) -> Optional[Lecture]:
 
 async def create_lecture(payload: LectureCreate) -> Lecture:
     data = payload.model_dump(mode="json", exclude_none=True)
-    cols = list(data.keys())
+    cols = validated_cols(LectureCreate, data)
     placeholders = ", ".join(["%s"] * len(cols))
     row = await db.fetchrow(
         f"INSERT INTO lectures ({', '.join(cols)}) "
@@ -44,7 +45,7 @@ async def update_lecture(lecture_id: str, patch: LecturePatch) -> Lecture:
     data = patch.model_dump(mode="json", exclude_none=True, exclude_unset=True)
     if not data:
         raise ValueError("empty patch")
-    cols = list(data.keys())
+    cols = validated_cols(LecturePatch, data)
     set_clause = ", ".join(f"{c} = %s" for c in cols)
     row = await db.fetchrow(
         f"UPDATE lectures SET {set_clause} WHERE id = %s RETURNING *",
