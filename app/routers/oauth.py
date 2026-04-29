@@ -11,6 +11,7 @@ approves Claude.ai once, done.
 """
 from __future__ import annotations
 
+import html
 from typing import Any, Optional
 from urllib.parse import quote, urlencode
 
@@ -32,6 +33,23 @@ def _origin(request: Request) -> str:
     proto = request.headers.get("x-forwarded-proto") or request.url.scheme
     host = request.headers.get("x-forwarded-host") or request.url.netloc
     return f"{proto}://{host}"
+
+
+def _safe_redirect_uri(uri: str) -> str:
+    """Reject `javascript:` / `data:` / `vbscript:` redirect URIs. Returns
+    the URI unchanged if safe, an empty string if not. Empty string is
+    treated as 'no Deny link' downstream.
+
+    OAuth 2.1 already requires `redirect_uri` to be pre-registered, so this
+    is defence in depth — Dynamic Client Registration (`/oauth/register`)
+    currently has no allow-list filter, and a misconfigured client could
+    still wind up here.
+    """
+    lowered = uri.strip().lower()
+    for bad in ("javascript:", "data:", "vbscript:", "file:"):
+        if lowered.startswith(bad):
+            return ""
+    return uri
 
 
 # ─────────────────────── Discovery metadata ───────────────────────
@@ -137,8 +155,28 @@ async def authorize(
         back = f"/oauth/authorize?{urlencode(params)}"
         return RedirectResponse(f"/login?next={quote(back, safe='')}")
 
-    safe_name = (client["client_name"] or "a client").replace("<", "&lt;").replace(">", "&gt;")
-    html = f"""<!doctype html>
+    # Escape every interpolated value. quote=True covers " and ' so an
+    # attacker can't break out of an attribute value. _safe_redirect_uri
+    # additionally rejects scheme injection on the Deny link.
+    safe_name = html.escape(client["client_name"] or "a client", quote=True)
+    safe_client_id = html.escape(client_id, quote=True)
+    safe_redirect = _safe_redirect_uri(redirect_uri)
+    safe_redirect_attr = html.escape(safe_redirect, quote=True)
+    safe_challenge = html.escape(code_challenge, quote=True)
+    safe_method = html.escape(code_challenge_method or "S256", quote=True)
+    safe_scope = html.escape(scope or "", quote=True)
+    safe_state = html.escape(state or "", quote=True)
+    # Deny link goes back to redirect_uri ONLY if it's a safe scheme;
+    # otherwise we strip the link to avoid producing a clickable
+    # javascript:/data: URI in the rendered page.
+    deny_href = (
+        f"{safe_redirect}?error=access_denied&state={state or ''}"
+        if safe_redirect
+        else "#"
+    )
+    deny_href_attr = html.escape(deny_href, quote=True)
+
+    page = f"""<!doctype html>
 <html lang="en" class="dark"><head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -170,18 +208,18 @@ async def authorize(
       <li>Record activity events</li>
     </ul>
     <form method="post" action="/oauth/consent" class="actions">
-      <input type="hidden" name="client_id" value="{client_id}">
-      <input type="hidden" name="redirect_uri" value="{redirect_uri}">
-      <input type="hidden" name="code_challenge" value="{code_challenge}">
-      <input type="hidden" name="code_challenge_method" value="{code_challenge_method}">
-      <input type="hidden" name="scope" value="{scope or ''}">
-      <input type="hidden" name="state" value="{state or ''}">
-      <a class="btn ghost" href="{redirect_uri}?error=access_denied&state={state or ''}">Deny</a>
+      <input type="hidden" name="client_id" value="{safe_client_id}">
+      <input type="hidden" name="redirect_uri" value="{safe_redirect_attr}">
+      <input type="hidden" name="code_challenge" value="{safe_challenge}">
+      <input type="hidden" name="code_challenge_method" value="{safe_method}">
+      <input type="hidden" name="scope" value="{safe_scope}">
+      <input type="hidden" name="state" value="{safe_state}">
+      <a class="btn ghost" href="{deny_href_attr}">Deny</a>
       <button type="submit" class="primary">Approve</button>
     </form>
   </div>
 </body></html>"""
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=page)
 
 
 @router.post("/oauth/consent", include_in_schema=False)
