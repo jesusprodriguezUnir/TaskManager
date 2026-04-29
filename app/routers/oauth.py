@@ -95,7 +95,7 @@ async def register_client(body: dict[str, Any] = Body(...)) -> JSONResponse:
     redirect_uris = body.get("redirect_uris") or []
     if not redirect_uris or not isinstance(redirect_uris, list):
         raise HTTPException(400, "redirect_uris required")
-    client = oauth_svc.create_client(
+    client = await oauth_svc.create_client(
         client_name=body.get("client_name") or "Unnamed client",
         redirect_uris=redirect_uris,
         token_endpoint_auth_method="none",
@@ -133,7 +133,7 @@ async def authorize(
     if code_challenge_method != "S256":
         raise HTTPException(400, "unsupported code_challenge_method (S256 only)")
 
-    client = oauth_svc.get_client(client_id)
+    client = await oauth_svc.get_client(client_id)
     if not client:
         raise HTTPException(400, "unknown client_id")
     if redirect_uri not in client["redirect_uris"]:
@@ -235,11 +235,11 @@ async def consent(
     if not await optional_auth(study_session):
         raise HTTPException(401, "not authenticated")
 
-    client = oauth_svc.get_client(client_id)
+    client = await oauth_svc.get_client(client_id)
     if not client or redirect_uri not in client["redirect_uris"]:
         raise HTTPException(400, "invalid client/redirect")
 
-    code = oauth_svc.create_auth_code(
+    code = await oauth_svc.create_auth_code(
         client_id=client_id,
         redirect_uri=redirect_uri,
         code_challenge=code_challenge,
@@ -264,10 +264,10 @@ async def token(
 ) -> JSONResponse:
     if grant_type != "authorization_code":
         raise HTTPException(400, "unsupported_grant_type")
-    row = oauth_svc.consume_auth_code(code, client_id, redirect_uri, code_verifier)
+    row = await oauth_svc.consume_auth_code(code, client_id, redirect_uri, code_verifier)
     if not row:
         raise HTTPException(400, "invalid_grant")
-    access_token, expires_in = oauth_svc.create_access_token(client_id, row.get("scope"))
+    access_token, expires_in = await oauth_svc.create_access_token(client_id, row.get("scope"))
     return JSONResponse(
         {
             "access_token": access_token,

@@ -12,7 +12,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from ..db import client
+from .. import db
 
 
 AUTH_CODE_TTL_SEC = 600  # 10 min
@@ -27,13 +27,9 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _parse_ts(v: str) -> datetime:
-    return datetime.fromisoformat(v.replace("Z", "+00:00"))
-
-
 # ─────────────────────── Clients ───────────────────────
 
-def create_client(
+async def create_client(
     *,
     client_name: str,
     redirect_uris: list[str],
@@ -42,38 +38,29 @@ def create_client(
 ) -> dict[str, Any]:
     client_id = _gen(16)
     client_secret = None if public else _gen(32)
-    resp = (
-        client()
-        .table("oauth_clients")
-        .insert(
-            {
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "client_name": client_name,
-                "redirect_uris": redirect_uris,
-                "token_endpoint_auth_method": token_endpoint_auth_method,
-            }
-        )
-        .execute()
+    row = await db.fetchrow(
+        "INSERT INTO oauth_clients "
+        "(client_id, client_secret, client_name, redirect_uris, "
+        " token_endpoint_auth_method) "
+        "VALUES (%s, %s, %s, %s, %s) RETURNING *",
+        client_id, client_secret, client_name, redirect_uris,
+        token_endpoint_auth_method,
     )
-    return resp.data[0]
+    if row is None:
+        raise ValueError(f"failed to register client '{client_name}'")
+    return row
 
 
-def get_client(client_id: str) -> Optional[dict[str, Any]]:
-    resp = (
-        client()
-        .table("oauth_clients")
-        .select("*")
-        .eq("client_id", client_id)
-        .limit(1)
-        .execute()
+async def get_client(client_id: str) -> Optional[dict[str, Any]]:
+    return await db.fetchrow(
+        "SELECT * FROM oauth_clients WHERE client_id = %s LIMIT 1",
+        client_id,
     )
-    return resp.data[0] if resp.data else None
 
 
 # ─────────────────────── Auth codes ───────────────────────
 
-def create_auth_code(
+async def create_auth_code(
     *,
     client_id: str,
     redirect_uri: str,
@@ -82,39 +69,45 @@ def create_auth_code(
     scope: Optional[str],
 ) -> str:
     code = _gen(32)
-    expires_at = (_now() + timedelta(seconds=AUTH_CODE_TTL_SEC)).isoformat()
-    client().table("oauth_auth_codes").insert(
-        {
-            "code": code,
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "code_challenge": code_challenge,
-            "code_challenge_method": code_challenge_method,
-            "scope": scope,
-            "expires_at": expires_at,
-        }
-    ).execute()
+    expires_at = _now() + timedelta(seconds=AUTH_CODE_TTL_SEC)
+    await db.execute(
+        "INSERT INTO oauth_auth_codes "
+        "(code, client_id, redirect_uri, code_challenge, "
+        " code_challenge_method, scope, expires_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        code, client_id, redirect_uri, code_challenge,
+        code_challenge_method, scope, expires_at,
+    )
     return code
 
 
-def consume_auth_code(
+async def consume_auth_code(
     code: str, client_id: str, redirect_uri: str, code_verifier: str
 ) -> Optional[dict[str, Any]]:
-    """Validate + mark used in one go. Returns the row on success, else None."""
-    resp = (
-        client()
-        .table("oauth_auth_codes")
-        .select("*")
-        .eq("code", code)
-        .limit(1)
-        .execute()
+    """Validate + invalidate the auth code in one shot. Returns the row on
+    success, else None.
+
+    Atomicity matters: a single `DELETE … RETURNING *` removes the row from
+    the table at the same instant we read it, so two parallel callers can
+    never both succeed with the same code (the second one's DELETE matches
+    zero rows). This is stricter than the previous SELECT-then-UPDATE form
+    which had a TOCTOU window.
+
+    Validation order:
+      1. DELETE the row if it exists AND has not expired (single SQL stmt).
+      2. Then verify client_id / redirect_uri / PKCE challenge in Python.
+    If any post-DELETE check fails the code is gone anyway — that's
+    deliberate, the row is treated as burnt the moment it's looked up.
+    """
+    row = await db.fetchrow(
+        "DELETE FROM oauth_auth_codes "
+        "WHERE code = %s AND expires_at > now() "
+        "RETURNING *",
+        code,
     )
-    row = resp.data[0] if resp.data else None
-    if not row or row["used"]:
+    if row is None:
         return None
     if row["client_id"] != client_id or row["redirect_uri"] != redirect_uri:
-        return None
-    if _parse_ts(row["expires_at"]) < _now():
         return None
 
     method = row["code_challenge_method"]
@@ -130,39 +123,49 @@ def consume_auth_code(
     else:
         return None
 
-    client().table("oauth_auth_codes").update({"used": True}).eq("code", code).execute()
     return row
 
 
 # ─────────────────────── Access tokens ───────────────────────
 
-def create_access_token(client_id: str, scope: Optional[str]) -> tuple[str, int]:
+async def create_access_token(client_id: str, scope: Optional[str]) -> tuple[str, int]:
     token = _gen(48)
-    expires_at = (_now() + timedelta(seconds=ACCESS_TOKEN_TTL_SEC)).isoformat()
-    client().table("oauth_tokens").insert(
-        {
-            "token": token,
-            "client_id": client_id,
-            "scope": scope,
-            "expires_at": expires_at,
-        }
-    ).execute()
+    expires_at = _now() + timedelta(seconds=ACCESS_TOKEN_TTL_SEC)
+    await db.execute(
+        "INSERT INTO oauth_tokens "
+        "(token, client_id, scope, expires_at) VALUES (%s, %s, %s, %s)",
+        token, client_id, scope, expires_at,
+    )
     return token, ACCESS_TOKEN_TTL_SEC
 
 
-def verify_access_token(token: str) -> Optional[dict[str, Any]]:
-    resp = (
-        client()
-        .table("oauth_tokens")
-        .select("*")
-        .eq("token", token)
-        .limit(1)
-        .execute()
+async def verify_access_token(token: str) -> Optional[dict[str, Any]]:
+    """Return the token row if it's known, not revoked, and not expired."""
+    row = await db.fetchrow(
+        "SELECT * FROM oauth_tokens "
+        "WHERE token = %s AND revoked = false "
+        "  AND (expires_at IS NULL OR expires_at > now()) "
+        "LIMIT 1",
+        token,
     )
-    row = resp.data[0] if resp.data else None
-    if not row or row["revoked"]:
-        return None
-    if row.get("expires_at"):
-        if _parse_ts(row["expires_at"]) < _now():
-            return None
     return row
+
+
+async def revoke_token(token: str) -> None:
+    """Mark an access token as revoked. After this, verify_access_token
+    returns None for the token. No-op if the token doesn't exist."""
+    await db.execute(
+        "UPDATE oauth_tokens SET revoked = true WHERE token = %s",
+        token,
+    )
+
+
+__all__ = [
+    "create_client",
+    "get_client",
+    "create_auth_code",
+    "consume_auth_code",
+    "create_access_token",
+    "verify_access_token",
+    "revoke_token",
+]
