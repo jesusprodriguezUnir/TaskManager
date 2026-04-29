@@ -76,9 +76,15 @@ def pg_url() -> str:
 
 @pytest_asyncio.fixture
 async def db_pool(pg_url: str) -> AsyncIterator:
-    """An async psycopg pool against the testcontainer."""
+    """An async psycopg pool against the testcontainer.
+
+    Mirrors `app.db.init_pool`'s configuration (dict_row + UUID→str loader)
+    so service tests behave identically to production code paths.
+    """
     from psycopg.rows import dict_row
     from psycopg_pool import AsyncConnectionPool
+
+    from app.db import _configure_connection
 
     pool = AsyncConnectionPool(
         pg_url,
@@ -86,6 +92,7 @@ async def db_pool(pg_url: str) -> AsyncIterator:
         max_size=2,
         open=False,
         kwargs={"row_factory": dict_row},
+        configure=_configure_connection,
     )
     await pool.open()
     try:

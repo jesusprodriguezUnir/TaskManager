@@ -20,6 +20,7 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import Any
 
+from psycopg.adapt import Loader
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
@@ -29,6 +30,35 @@ from .config import get_settings
 # ── new async pool ────────────────────────────────────────────────────────────
 
 _pool: AsyncConnectionPool | None = None
+
+
+class _StrUUIDLoader(Loader):
+    """Load Postgres `uuid` columns as Python `str` instead of `uuid.UUID`.
+
+    Pydantic v2 strict mode rejects `uuid.UUID` for fields typed `str`, and
+    every entity in OpenStudy has a uuid PK typed `str` in the schemas
+    (`Slot.id`, `Lecture.id`, `Task.id`, …). Stringifying at the driver
+    level avoids needing a `_row_to_X()` coercer in every service.
+
+    Postgres returns UUID values as canonical text (e.g.
+    `b'a1b2c3d4-e5f6-...'`) so we just decode bytes → str. No parsing
+    cost, no dependency on python-uuid.
+    """
+
+    def load(self, data):
+        # psycopg's binary protocol gives us a memoryview; text protocol
+        # gives bytes. Either way, the canonical UUID text is what we want.
+        if isinstance(data, memoryview):
+            data = bytes(data)
+        if isinstance(data, bytes):
+            return data.decode()
+        return data
+
+
+async def _configure_connection(conn) -> None:
+    """Per-connection adapter setup. Runs once on every freshly-opened
+    connection in the pool (psycopg's `configure=` callback)."""
+    conn.adapters.register_loader("uuid", _StrUUIDLoader)
 
 
 def _build_dsn() -> str:
@@ -57,6 +87,9 @@ async def init_pool(dsn: str | None = None) -> None:
         # services can keep using `row["column"]` access. Same shape
         # PostgREST returned in `resp.data`.
         kwargs={"row_factory": dict_row},
+        # Per-connection adapter setup so UUID columns load as `str`
+        # rather than `uuid.UUID` (Pydantic-friendly).
+        configure=_configure_connection,
     )
     await _pool.open()
 

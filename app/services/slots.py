@@ -1,18 +1,6 @@
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from .. import db
 from ..schemas import Slot, SlotCreate, SlotPatch
-
-
-def _row_to_slot(row: Dict[str, Any]) -> Slot:
-    """Coerce uuid column to string before Pydantic validation.
-
-    Postgres returns `id` as a `uuid.UUID` object via psycopg, but the Slot
-    schema declares it as `str`. PostgREST used to JSON-serialize uuids; with
-    direct DB access we do the conversion ourselves.
-    """
-    if "id" in row and row["id"] is not None and not isinstance(row["id"], str):
-        row = {**row, "id": str(row["id"])}
-    return Slot.model_validate(row)
 
 
 async def list_slots(course_code: Optional[str] = None) -> List[Slot]:
@@ -26,7 +14,7 @@ async def list_slots(course_code: Optional[str] = None) -> List[Slot]:
         rows = await db.fetch(
             "SELECT * FROM schedule_slots ORDER BY weekday, start_time"
         )
-    return [_row_to_slot(r) for r in rows]
+    return [Slot.model_validate(r) for r in rows]
 
 
 async def create_slot(body: SlotCreate) -> Slot:
@@ -40,7 +28,7 @@ async def create_slot(body: SlotCreate) -> Slot:
     )
     if row is None:
         raise ValueError(f"failed to create slot for {body.course_code}")
-    return _row_to_slot(row)
+    return Slot.model_validate(row)
 
 
 async def update_slot(slot_id: str, patch: SlotPatch) -> Slot:
@@ -55,7 +43,7 @@ async def update_slot(slot_id: str, patch: SlotPatch) -> Slot:
     )
     if row is None:
         raise ValueError(f"slot {slot_id} not found")
-    return _row_to_slot(row)
+    return Slot.model_validate(row)
 
 
 async def delete_slot(slot_id: str) -> None:
