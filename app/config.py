@@ -11,15 +11,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # PostgREST (the data-plane HTTP layer in front of Postgres).
-    postgrest_url: str = Field(default="")
-    postgrest_api_key: str = Field(default="")
-    # When true (default), send `apikey` + `Authorization: Bearer …` to
-    # PostgREST — required when PostgREST validates JWTs. Set to false when
-    # JWT auth is disabled on the PostgREST side; otherwise a non-JWT
-    # bearer value triggers a 500.
-    postgrest_auth: bool = Field(default=True)
-
     # Auth
     app_password_hash: str = Field(default="")
     # No default — production deploys must set SESSION_SECRET. The setter
