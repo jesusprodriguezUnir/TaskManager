@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from .. import db
 from ..schemas import Deliverable, DeliverableCreate, DeliverablePatch
-from ._helpers import model_dump_clean
+from ._helpers import model_dump_clean, validated_cols
 
 
 async def list_deliverables(
@@ -32,7 +32,7 @@ async def list_deliverables(
 
 async def create_deliverable(payload: DeliverableCreate) -> Deliverable:
     data = model_dump_clean(payload)
-    cols = list(data.keys())
+    cols = validated_cols(DeliverableCreate, data)
     placeholders = ", ".join(["%s"] * len(cols))
     row = await db.fetchrow(
         f"INSERT INTO deliverables ({', '.join(cols)}) "
@@ -48,7 +48,7 @@ async def update_deliverable(deliverable_id: str, patch: DeliverablePatch) -> De
     data = model_dump_clean(patch)
     if not data:
         raise ValueError("empty patch")
-    cols = list(data.keys())
+    cols = validated_cols(DeliverablePatch, data)
     set_clause = ", ".join(f"{c} = %s" for c in cols)
     row = await db.fetchrow(
         f"UPDATE deliverables SET {set_clause} WHERE id = %s RETURNING *",
