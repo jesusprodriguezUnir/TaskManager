@@ -235,8 +235,10 @@ async def test_consume_auth_code_bad_verifier_returns_none(client, db_conn):
 
 
 @pytest.mark.asyncio
-async def test_consume_auth_code_plain_method(client, db_conn):
-    """`plain` PKCE method: verifier == challenge."""
+async def test_consume_auth_code_rejects_plain_method(client, db_conn):
+    """OAuth 2.1 mandates S256 — `plain` codes must always be rejected even if
+    one slipped into the table (e.g. via a direct POST to /oauth/consent that
+    bypasses the /authorize S256 check)."""
     from app.services import oauth as svc
     cli = await _register_client("Plain PKCE")
     code = await svc.create_auth_code(
@@ -246,18 +248,11 @@ async def test_consume_auth_code_plain_method(client, db_conn):
         code_challenge_method="plain",
         scope=None,
     )
-    # Right verifier
     row = await svc.consume_auth_code(
         code, cli["client_id"], "https://example.test/cb",
         "literal-challenge",
     )
-    assert row is not None
-    # And single-use still applies for plain
-    again = await svc.consume_auth_code(
-        code, cli["client_id"], "https://example.test/cb",
-        "literal-challenge",
-    )
-    assert again is None
+    assert row is None
 
 
 # ── Access tokens ────────────────────────────────────────────────────────────

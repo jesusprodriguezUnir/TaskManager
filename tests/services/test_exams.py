@@ -3,9 +3,6 @@
 Exams have a per-course singleton shape: at most one exam row per course
 (course_code is the primary key). update_exam is upsert-style: insert if
 missing, update if present.
-
-Note: testcontainer is session-scoped (no per-test rollback), so each test
-uses a unique course_code to avoid PK collisions across tests.
 """
 from datetime import datetime, timezone
 

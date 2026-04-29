@@ -60,8 +60,14 @@ async def totp_setup(_: bool = Depends(require_auth)) -> TotpSetupResponse:
     with a valid code from an authenticator app first. The secret is stored on
     the singleton row but `totp_enabled` stays false until confirmed."""
     secret = pyotp.random_base32()
+    # Upsert: on a fresh DB the singleton row may not exist yet, in which case
+    # a bare UPDATE silently matches zero rows and the secret is lost — the
+    # caller then sees 200 here but a 400 on /enable. Fixed via ON CONFLICT.
     await db.execute(
-        "UPDATE app_settings SET totp_secret = %s, totp_enabled = false WHERE id = 1",
+        "INSERT INTO app_settings (id, totp_secret, totp_enabled) "
+        "VALUES (1, %s, false) "
+        "ON CONFLICT (id) DO UPDATE "
+        "SET totp_secret = EXCLUDED.totp_secret, totp_enabled = false",
         secret,
     )
     uri = pyotp.TOTP(secret).provisioning_uri(name="admin", issuer_name="OpenStudy")

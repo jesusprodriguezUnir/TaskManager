@@ -4,9 +4,6 @@ Tasks are personal todos. They have a nullable FK to courses
 (`course_code text NULL REFERENCES courses(code) ON DELETE SET NULL`),
 so a task can exist without a course but, if a code is supplied, the
 referenced course row must exist.
-
-Note: testcontainer is session-scoped (no per-test rollback), so each
-test that wants isolation uses a unique course_code or filters by it.
 """
 from datetime import datetime, timezone
 

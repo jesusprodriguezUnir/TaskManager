@@ -110,17 +110,15 @@ async def consume_auth_code(
     if row["client_id"] != client_id or row["redirect_uri"] != redirect_uri:
         return None
 
-    method = row["code_challenge_method"]
-    challenge = row["code_challenge"]
-    if method == "S256":
-        digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
-        computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-        if computed != challenge:
-            return None
-    elif method == "plain":
-        if code_verifier != challenge:
-            return None
-    else:
+    # OAuth 2.1 mandates S256 — `plain` is rejected even if a code row
+    # somehow ended up stored with method='plain' (the /authorize handler
+    # already blocks it, but a direct POST to /oauth/consent skipped that
+    # check until this guard was added).
+    if row["code_challenge_method"] != "S256":
+        return None
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    if computed != row["code_challenge"]:
         return None
 
     return row

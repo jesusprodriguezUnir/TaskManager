@@ -46,12 +46,16 @@ async def update_settings(patch: AppSettingsPatch) -> AppSettings:
         *values, SETTINGS_PK,
     )
     if row is None:
-        # Row missing — insert with the patch applied.
+        # Row missing — upsert (ON CONFLICT) rather than bare INSERT, so two
+        # concurrent first-callers don't race the PK constraint into a 500.
         insert_cols = ["id", *cols]
         placeholders = ", ".join(["%s"] * len(insert_cols))
+        update_set = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols)
         row = await db.fetchrow(
             f"INSERT INTO app_settings ({', '.join(insert_cols)}) "
-            f"VALUES ({placeholders}) RETURNING *",
+            f"VALUES ({placeholders}) "
+            f"ON CONFLICT (id) DO UPDATE SET {update_set} "
+            f"RETURNING *",
             SETTINGS_PK, *values,
         )
     return AppSettings.model_validate(row)

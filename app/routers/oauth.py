@@ -79,10 +79,12 @@ async def oauth_authorization_server(request: Request) -> JSONResponse:
             "authorization_endpoint": f"{origin}/oauth/authorize",
             "token_endpoint": f"{origin}/oauth/token",
             "registration_endpoint": f"{origin}/oauth/register",
+            "revocation_endpoint": f"{origin}/oauth/revoke",
             "response_types_supported": ["code"],
             "grant_types_supported": ["authorization_code"],
             "code_challenge_methods_supported": ["S256"],
             "token_endpoint_auth_methods_supported": ["none"],
+            "revocation_endpoint_auth_methods_supported": ["none"],
             "scopes_supported": ["mcp"],
         }
     )
@@ -250,6 +252,21 @@ async def consent(
     if state:
         params["state"] = state
     return RedirectResponse(f"{redirect_uri}?{urlencode(params)}", status_code=302)
+
+
+# ─────────────────────── Token revocation (RFC 7009) ───────────────────────
+
+@router.post("/oauth/revoke", include_in_schema=False)
+async def revoke(
+    token: str = Form(...),
+    token_type_hint: Optional[str] = Form(None),
+    client_id: Optional[str] = Form(None),
+) -> Response:
+    """RFC 7009 token revocation. Public clients (auth_method=none) call this
+    on logout. Per spec, the response is always 200 even when the token is
+    unknown — surfacing a distinction would let callers enumerate live tokens."""
+    await oauth_svc.revoke_token(token)
+    return Response(status_code=200)
 
 
 # ─────────────────────── Token endpoint ───────────────────────

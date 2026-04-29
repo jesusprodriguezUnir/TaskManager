@@ -125,11 +125,11 @@ async def test_oauth_full_lifecycle(https_client, db_conn):
     # show up — `list_courses` is registered unconditionally.
     assert "list_courses" in body, body[:500]
 
-    # 6. Revoke. There's no HTTP /oauth/revoke endpoint — go through the
-    # service the same way a future router would. `oauth_svc.verify_access_token`
-    # is what `/mcp/`'s token verifier calls under the hood.
-    from app.services import oauth as oauth_svc
-    await oauth_svc.revoke_token(access_token)
+    # 6. Revoke via the RFC 7009 endpoint.
+    revoke = await https_client.post(
+        "/oauth/revoke", data={"token": access_token, "client_id": client_id}
+    )
+    assert revoke.status_code == 200, revoke.text
 
     # 7. Repeat /mcp/ — Bearer token now invalid → 401.
     mcp_resp_2 = await https_client.post(
@@ -185,16 +185,6 @@ async def test_login_rate_limit_then_success(https_client, db_conn):
 
 @pytest.mark.asyncio
 async def test_totp_enroll_and_login(https_client, db_conn):
-    # The TOTP routes update the singleton app_settings row in place; the
-    # baseline migration doesn't seed it, so insert here before calling.
-    # (Real bug: /api/auth/totp/setup returns 200 + a secret on a fresh DB
-    # but the secret isn't persisted, then /enable fails with 400. See
-    # test report — not fixed in this PR.)
-    async with db_conn.connection() as conn, conn.cursor() as cur:
-        await cur.execute(
-            "INSERT INTO app_settings (id) VALUES (1) ON CONFLICT DO NOTHING"
-        )
-
     # 1. Login with password only (TOTP not yet enabled).
     login = await https_client.post(
         "/api/auth/login", json={"password": _TEST_PASSWORD}
