@@ -22,6 +22,7 @@ import { fmtBerlin, relative } from "@/lib/time";
 import { useTranslation } from "react-i18next";
 import type { CourseCode } from "@/data/types";
 import { normalizeTheme } from "@/lib/themes";
+import { getDateLocale } from "@/lib/i18n";
 
 // Themed dashboards are lazy: an editorial-theme user shouldn't download
 // four other implementations. Each chunk loads only when its theme is active.
@@ -312,7 +313,7 @@ function EditorialDashboard() {
 
 function DashboardTopStrip({ now }: { now: Date }) {
   const { t, i18n } = useTranslation();
-  const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
+  const localeCode = getDateLocale(i18n.language);
   const settings = useAppSettings();
   const semesterLabel = settings.data?.semester_label?.trim() || null;
   const semesterWeek = computeSemesterWeek(now, settings.data?.semester_start);

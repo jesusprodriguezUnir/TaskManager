@@ -17,6 +17,7 @@ import {
 } from "@/lib/queries";
 import type { CourseCode } from "@/data/types";
 import { semesterWeek, isoWeek } from "@/lib/time";
+import { getDateLocale } from "@/lib/i18n";
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 function cv(code: string) { return `var(--course-${code.toLowerCase()})`; }
@@ -106,7 +107,7 @@ export function ZineDashboard() {
   ).length;
 
   const firstSlot = nextEvent ? relLabel(nextEvent.at, now) : null;
-  const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
+  const localeCode = getDateLocale(i18n.language);
   const dateStr = now.toLocaleDateString(localeCode, {
     weekday: "short", day: "2-digit", month: "short", year: "numeric",
   }).toUpperCase();
@@ -408,7 +409,7 @@ function ZineWeek({
   semesterStart?: string | null;
 }) {
   const { t, i18n } = useTranslation();
-  const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
+  const localeCode = getDateLocale(i18n.language);
   const wkLabel = t("zine.wk");
   const hours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
   const pxh = 48;
@@ -493,7 +494,7 @@ function ZineDeadlines({
   now: Date;
 }) {
   const { t, i18n } = useTranslation();
-  const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
+  const localeCode = getDateLocale(i18n.language);
   const navigate = useNavigate();
   return (
     <div className="z-pnl">

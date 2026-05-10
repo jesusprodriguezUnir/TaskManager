@@ -182,7 +182,7 @@ function LanguagePicker() {
   const current = currentLanguage();
 
   function onChange(v: string) {
-    const lang = (v === "de" ? "de" : "en") as AppLanguage;
+    const lang = (v === "de" ? "de" : v === "es" ? "es" : "en") as AppLanguage;
     markLanguageExplicit();
     setLanguage(lang);
   }
@@ -193,10 +193,11 @@ function LanguagePicker() {
         <SelectTrigger>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="en">{t("settings.language.english")}</SelectItem>
-          <SelectItem value="de">{t("settings.language.german")}</SelectItem>
-        </SelectContent>
+<SelectContent>
+            <SelectItem value="en">{t("settings.language.english")}</SelectItem>
+            <SelectItem value="de">{t("settings.language.german")}</SelectItem>
+            <SelectItem value="es">{t("settings.language.spanish")}</SelectItem>
+          </SelectContent>
       </Select>
     </Field>
   );

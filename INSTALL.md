@@ -145,7 +145,7 @@ of your stack only needs to talk to one port.
 To customise the build (your domain in canonical/OG tags, your site
 name in the manifest), set these in `.env.docker` before deploying:
 
-```
+```dotenv
 PUBLIC_SITE_URL=https://your-domain.tld
 PUBLIC_SITE_NAME=Your Name
 PUBLIC_SHOW_LANDING=false
@@ -175,7 +175,7 @@ via Let's Encrypt. Nginx + Certbot, Traefik, anything else works the same way.
 
 `/etc/caddy/Caddyfile`:
 
-```
+```caddyfile
 your-domain.tld {
     encode gzip
     reverse_proxy 127.0.0.1:8080 {
@@ -315,3 +315,29 @@ in a shell, the `$` chars need to be single-quoted.
 The OAuth token cached by the client expired or was revoked. Reconnect:
 in claude.ai disconnect and re-add the connector; in Claude Code run
 `/mcp` and re-authenticate openstudy.
+
+**On Windows/Git Bash deploy fails with `tee: /var/log/openstudy-deploy.log: Permission denied`.**
+`deploy.sh` now falls back automatically to a local log file at
+`.logs/openstudy-deploy.log` when `/var/log` is not writable.
+You can also override the log destination explicitly:
+
+```powershell
+$env:OPENSTUDY_DEPLOY_LOG='.logs/openstudy-deploy.log'
+bash -lc './deploy.sh'
+```
+
+**On Windows, pytest fails with testcontainers Ryuk port mapping errors (`port 8080 is not available`).**
+Disable Ryuk for local runs:
+
+```powershell
+$env:TESTCONTAINERS_RYUK_DISABLED='true'
+uv run pytest
+```
+
+**pytest fails with `SESSION_SECRET is unset or still the placeholder`.**
+For local test runs, set a temporary value in the shell:
+
+```powershell
+$env:SESSION_SECRET='local-test-session-secret-123'
+uv run pytest
+```

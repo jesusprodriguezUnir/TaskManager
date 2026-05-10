@@ -17,6 +17,7 @@ import {
 } from "@/lib/queries";
 import type { CourseCode } from "@/data/types";
 import { semesterWeek, isoWeek } from "@/lib/time";
+import { getDateLocale } from "@/lib/i18n";
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 function cv(code: string) { return `var(--course-${code.toLowerCase()})`; }
@@ -63,7 +64,7 @@ export function LibraryDashboard() {
   }
 
   const now = parseISO(data.now);
-  const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
+  const localeCode = getDateLocale(i18n.language);
   const displayName = (settings.data?.display_name ?? "").trim() || t("library.fallbackName");
   const firstName = displayName.split(" ")[0];
   const institution = settings.data?.institution?.trim() || "";

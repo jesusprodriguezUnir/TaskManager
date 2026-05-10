@@ -14,6 +14,7 @@ import {
 } from "@/lib/queries";
 import { relative, semesterWeek, isoWeek } from "@/lib/time";
 import type { CourseCode } from "@/data/types";
+import { getDateLocale } from "@/lib/i18n";
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 function courseVar(code: string) { return `var(--course-${code.toLowerCase()})`; }
@@ -87,7 +88,7 @@ export function TerminalDashboard() {
   const firstName = displayName.split(" ")[0];
   const semesterLabel = settings.data?.semester_label?.trim() || "";
   const institution = settings.data?.institution?.trim() || "";
-  const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
+  const localeCode = getDateLocale(i18n.language);
 
   // next event across courses
   const nextEvent = data.fall_behind
@@ -462,7 +463,7 @@ function TerminalWeekGrid({
   semesterStart?: string | null;
 }) {
   const { t, i18n } = useTranslation();
-  const localeCode = i18n.language === "de" ? "de-DE" : "en-GB";
+  const localeCode = getDateLocale(i18n.language);
   const hours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
   const pxh = 44;
   const sH = 8;

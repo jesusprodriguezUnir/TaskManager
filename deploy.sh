@@ -28,7 +28,7 @@ cd "$(dirname "$0")"
 # without $-substitution, so APP_PASSWORD_HASH stays intact.
 COMPOSE="docker compose --env-file .env.docker"
 
-LOG=/var/log/openstudy-deploy.log
+LOG=${OPENSTUDY_DEPLOY_LOG:-/var/log/openstudy-deploy.log}
 HEALTH_URL=http://127.0.0.1:8000/api/health
 HEALTH_TIMEOUT=60   # seconds
 HEALTH_INTERVAL=2   # seconds
@@ -51,6 +51,17 @@ done
 ts()  { date '+%Y-%m-%d %H:%M:%S'; }
 log() { local m="$*"; echo "[$(ts)] $m" | tee -a "$LOG"; }
 err() { local m="$*"; echo "[$(ts)] ERROR: $m" | tee -a "$LOG" >&2; }
+
+init_log_target() {
+    local desired="$LOG"
+    if mkdir -p "$(dirname "$desired")" 2>/dev/null && touch "$desired" 2>/dev/null; then
+        return 0
+    fi
+    mkdir -p .logs
+    LOG=".logs/openstudy-deploy.log"
+    touch "$LOG"
+    echo "[$(ts)] WARN: falling back to local deploy log at $LOG" >&2
+}
 
 current_image_id() {
     $COMPOSE images openstudy --format '{{.ID}}' 2>/dev/null | head -1
@@ -94,6 +105,8 @@ if [ "$SHOW_STATUS" -eq 1 ]; then
 fi
 
 # ── pre-flight ───────────────────────────────────────────────────────────────
+
+init_log_target
 
 log "=== deploy starting ==="
 
