@@ -1,6 +1,6 @@
 {
-  "name": "OpenStudy",
-  "short_name": "OpenStudy",
+  "name": "TaskManager",
+  "short_name": "TaskManager",
   "description": "Self-hostable study dashboard with Claude MCP integration.",
   "start_url": "/",
   "scope": "/",

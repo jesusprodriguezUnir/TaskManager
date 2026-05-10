@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     session_secret: str = Field(default="")
     session_ttl_days: int = 30
 
+    # Google OAuth
+    google_client_id: str = Field(default="")
+    google_client_secret: str = Field(default="")
+
     # Expose FastAPI's auto-generated /api/docs (Swagger UI) + /api/openapi.json.
     # Default OFF — they're recon assist for attackers. Set EXPOSE_DOCS=true
     # in dev .env if you want them. Production should always be false.

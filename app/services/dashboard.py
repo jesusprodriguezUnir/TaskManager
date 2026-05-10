@@ -10,7 +10,9 @@ from . import (
     study_topics as topics_svc,
     lectures as lectures_svc,
     fall_behind as fb_svc,
+    google_calendar as gc_svc,
 )
+import asyncio
 
 
 async def get_dashboard_summary() -> DashboardSummary:
@@ -23,6 +25,11 @@ async def get_dashboard_summary() -> DashboardSummary:
     tp = await topics_svc.list_study_topics()
     ls = await lectures_svc.list_lectures()
     fb = fb_svc.compute_fall_behind(cs, tp, ss, now)
+    
+    # Fire and forget sync
+    asyncio.create_task(gc_svc.pull_from_google())
+    ge = await gc_svc.get_google_events()
+    
     return DashboardSummary(
         now=now,
         courses=cs,
@@ -33,4 +40,5 @@ async def get_dashboard_summary() -> DashboardSummary:
         study_topics=tp,
         lectures=ls,
         fall_behind=fb,
+        google_events=ge,
     )

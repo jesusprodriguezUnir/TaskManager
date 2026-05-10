@@ -82,6 +82,10 @@ class AppSettings(BaseModel):
     timezone: str = "UTC"
     locale: str = "en-US"
     theme: Optional[str] = "editorial"
+    google_access_token: Optional[str] = None
+    google_refresh_token: Optional[str] = None
+    google_token_expires_at: Optional[datetime] = None
+    google_email: Optional[str] = None
 
 
 class AppSettingsPatch(BaseModel):
@@ -300,6 +304,19 @@ class Task(TaskCreate):
     updated_at: Optional[datetime] = None
 
 
+# ---------- Google Calendar Event ----------
+class GoogleCalendarEvent(BaseModel):
+    id: str
+    summary: str
+    description: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    color_id: Optional[str] = None
+    html_link: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
 # ---------- Event ----------
 class EventCreate(BaseModel):
     kind: str
@@ -359,6 +376,7 @@ class DashboardSummary(BaseModel):
     study_topics: List[StudyTopic]
     lectures: List[Lecture]
     fall_behind: List[FallBehindItem]
+    google_events: List[GoogleCalendarEvent]
 
 
 # ---------- Auth ----------

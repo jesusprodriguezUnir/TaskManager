@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import type { Slot, CourseCode } from "@/data/types";
+import type { Slot, CourseCode, GoogleCalendarEvent } from "@/data/types";
 import { courseAccentVar } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 import { semesterWeek, isoWeek } from "@/lib/time";
@@ -25,12 +25,14 @@ function hhmm(t: string): string {
 
 export function WeeklyGrid({
   slots,
+  googleEvents = [],
   todayWeekday,
   monday,
   now,
   semesterStart,
 }: {
   slots: Slot[];
+  googleEvents?: GoogleCalendarEvent[];
   todayWeekday: number;
   /** Monday of the current week (for date labels). */
   monday: Date;
@@ -131,6 +133,18 @@ export function WeeklyGrid({
         {DAY_ISOS.map((iso, i) => {
           const isToday = iso === todayWeekday;
           const daySlots = slots.filter((s) => s.weekday === iso);
+          
+          const date = new Date(monday);
+          date.setDate(monday.getDate() + i);
+          
+          const dayGoogleEvents = googleEvents.filter((e) => {
+            if (!e.start_time) return false;
+            const d = new Date(e.start_time);
+            return d.getFullYear() === date.getFullYear() && 
+                   d.getMonth() === date.getMonth() && 
+                   d.getDate() === date.getDate();
+          });
+
           return (
             <div
               key={iso}
@@ -157,6 +171,9 @@ export function WeeklyGrid({
               )}
               {daySlots.map((slot) => (
                 <LectureBlock key={slot.id} slot={slot} />
+              ))}
+              {dayGoogleEvents.map((evt) => (
+                <GoogleEventBlock key={evt.id} evt={evt} />
               ))}
             </div>
           );
@@ -196,6 +213,46 @@ function LectureBlock({ slot }: { slot: Slot }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+function GoogleEventBlock({ evt }: { evt: GoogleCalendarEvent }) {
+  if (!evt.start_time || !evt.end_time) return null;
+  
+  const start = new Date(evt.start_time);
+  const end = new Date(evt.end_time);
+  
+  const startHhmm = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+  const endHhmm = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+  
+  const top = toTopPx(startHhmm) + 8;
+  const height = Math.max(slotHeight(startHhmm, endHhmm), 44);
+  const accent = "#4285F4"; // Google Blue
+  
+  return (
+    <a
+      href={evt.html_link || "#"}
+      target="_blank"
+      rel="noreferrer"
+      className="absolute left-1.5 right-1.5 rounded-[7px] bg-surface-2 border border-border overflow-hidden cursor-pointer transition-[border-color,background,transform] hover:border-border-strong hover:-translate-y-px no-underline text-inherit block"
+      style={{ top, height, ["--accent" as string]: accent } as CSSProperties}
+    >
+      <span
+        className="absolute left-0 top-0 bottom-0 w-[3px]"
+        style={{ background: accent }}
+      />
+      <span className="absolute top-1.5 right-2 font-mono text-[10px] text-muted tracking-[0.02em]">
+        {startHhmm}
+      </span>
+      <div className="px-2 pl-3 py-1.5 pr-10 h-full flex flex-col gap-0.5 overflow-hidden">
+        <div className="font-mono text-[10.5px] font-semibold tracking-[0.04em] truncate" style={{ color: accent }}>
+          Google Calendar
+        </div>
+        <div className="text-[12px] font-medium text-fg truncate leading-tight">
+          {evt.summary || "Evento"}
+        </div>
+      </div>
+    </a>
   );
 }
 

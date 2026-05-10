@@ -137,3 +137,13 @@ export type Lecture = {
   attended: boolean;
   notes?: string;
 };
+
+export type GoogleCalendarEvent = {
+  id: string;
+  summary: string;
+  description?: string;
+  start_time?: string;
+  end_time?: string;
+  color_id?: string;
+  html_link?: string;
+};

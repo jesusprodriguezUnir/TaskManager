@@ -1,4 +1,4 @@
-# OpenStudy — https://openstudy.dev
+# TaskManager — http://localhost:5173
 # Authenticated app lives behind /login; only the landing page, static brand
 # assets, and the OG card are meant to be crawlable.
 
@@ -11,4 +11,4 @@ Disallow: /oauth/
 Disallow: /.well-known/oauth-
 Disallow: /login
 
-Sitemap: https://openstudy.dev/sitemap.xml
+Sitemap: http://localhost:5173/sitemap.xml

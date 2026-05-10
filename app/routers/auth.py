@@ -14,6 +14,8 @@ from ..auth import (
 )
 from ..ratelimit import check_login_rate, record_login_attempt
 from ..schemas import LoginRequest, SessionInfo, TotpSetupResponse, TotpVerifyRequest
+from ..services.google_calendar import get_google_oauth_url, exchange_google_code
+from ..config import get_settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -39,6 +41,46 @@ async def login(body: LoginRequest, request: Request, response: Response) -> Ses
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid password")
     issue_session(response)
     return SessionInfo(authed=True, totp_enabled=await is_totp_required())
+
+
+@router.get("/google/login")
+async def google_login(request: Request):
+    """Redirect to Google OAuth consent screen."""
+    s = get_settings()
+    if not s.google_client_id:
+        raise HTTPException(status_code=400, detail="La integración con Google no está configurada (falta GOOGLE_CLIENT_ID en .env)")
+        
+    redirect_uri = f"{s.public_url.rstrip('/')}/api/auth/google/callback"
+    try:
+        url = await get_google_oauth_url(redirect_uri)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    return Response(status_code=302, headers={"Location": url})
+
+
+@router.get("/google/callback")
+async def google_callback(request: Request, response: Response, code: str = None, error: str = None):
+    """Handle OAuth callback, exchange token, and issue session."""
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    if not code:
+        raise HTTPException(status_code=400, detail="No code provided")
+        
+    s = get_settings()
+    redirect_uri = f"{s.public_url.rstrip('/')}/api/auth/google/callback"
+    
+    try:
+        email = await exchange_google_code(code, redirect_uri)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    # User is now authenticated
+    issue_session(response)
+    
+    # Redirect to dashboard
+    frontend_url = s.public_url.rstrip('/')
+    return Response(status_code=302, headers={"Location": f"{frontend_url}/"})
 
 
 @router.post("/logout", response_model=SessionInfo)

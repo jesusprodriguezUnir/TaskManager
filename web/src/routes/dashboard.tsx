@@ -258,6 +258,7 @@ function EditorialDashboard() {
       />
       <WeeklyGrid
         slots={data.slots}
+        googleEvents={data.google_events}
         todayWeekday={todayWeekday}
         monday={monday}
         now={now}

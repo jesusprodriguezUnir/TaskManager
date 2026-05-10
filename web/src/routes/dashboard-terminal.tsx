@@ -13,7 +13,7 @@ import {
   useReopenTask,
 } from "@/lib/queries";
 import { relative, semesterWeek, isoWeek } from "@/lib/time";
-import type { CourseCode } from "@/data/types";
+import type { CourseCode, GoogleCalendarEvent } from "@/data/types";
 import { getDateLocale } from "@/lib/i18n";
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
@@ -378,6 +378,7 @@ export function TerminalDashboard() {
         </div>
         <TerminalWeekGrid
           slots={data.slots}
+          googleEvents={data.google_events}
           monday={monday}
           now={now}
           semesterStart={settings.data?.semester_start}
@@ -453,11 +454,13 @@ export function TerminalDashboard() {
 
 function TerminalWeekGrid({
   slots,
+  googleEvents = [],
   monday,
   now,
   semesterStart,
 }: {
   slots: { id: string; weekday: number; start_time: string; end_time: string; kind: string; room?: string; course_code: string }[];
+  googleEvents?: GoogleCalendarEvent[];
   monday: Date;
   now: Date;
   semesterStart?: string | null;
@@ -541,6 +544,44 @@ function TerminalWeekGrid({
                   {s.room && <div className="tm-rm">▸ {s.room}</div>}
                 </Link>
               ))}
+            {googleEvents
+              .filter((e) => {
+                if (!e.start_time) return false;
+                const d = new Date(e.start_time);
+                const cellD = new Date(monday);
+                cellD.setDate(monday.getDate() + (day.i - 1));
+                return d.getFullYear() === cellD.getFullYear() &&
+                       d.getMonth() === cellD.getMonth() &&
+                       d.getDate() === cellD.getDate();
+              })
+              .map((evt) => {
+                if (!evt.start_time || !evt.end_time) return null;
+                const start = new Date(evt.start_time);
+                const end = new Date(evt.end_time);
+                const startHhmm = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
+                const endHhmm = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
+                return (
+                  <a
+                    key={evt.id}
+                    href={evt.html_link || "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="tm-blk"
+                    style={
+                      {
+                        top: toTop(startHhmm),
+                        height: toH(startHhmm, endHhmm),
+                        "--accent": "#4285F4", // Google Blue
+                        opacity: 0.9,
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div className="tm-tm">{startHhmm}</div>
+                    <div className="tm-pc" style={{ color: "#4285F4" }}>Google Cal</div>
+                    <div className="tm-rm">▸ {evt.summary || "Evento"}</div>
+                  </a>
+                );
+              })}
           </div>
         ))}
       </div>

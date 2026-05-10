@@ -10,6 +10,7 @@ import type {
   StudyTopic,
   Task,
   TaskStatus,
+  GoogleCalendarEvent,
 } from "@/data/types";
 
 export type FallBehindSeverity = "ok" | "warn" | "critical";
@@ -32,6 +33,7 @@ export type DashboardSummary = {
   study_topics: StudyTopic[];
   lectures: Lecture[];
   fall_behind: FallBehindItem[];
+  google_events: GoogleCalendarEvent[];
 };
 
 // ── Query keys ──────────────────────────────────────────────────────────────
