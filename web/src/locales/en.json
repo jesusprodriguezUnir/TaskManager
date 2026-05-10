@@ -43,7 +43,26 @@
     "archive": "Archive",
     "sections": "Sections",
     "volumes": "Volumes",
-    "pages": "Pages"
+    "pages": "Pages",
+    "simulation": "Simulation"
+  },
+  "simulation": {
+    "title": "Data Simulation",
+    "description": "Populate the application with mock data for testing or clear everything to start fresh.",
+    "seedBtn": "Generate Mock Data",
+    "clearBtn": "Clear All Data",
+    "confirmClearTitle": "Clear all data?",
+    "confirmClearBody": "This will permanently delete all courses, tasks, exams, and files. This action cannot be undone.",
+    "seeding": "Generating data...",
+    "clearing": "Clearing data...",
+    "seedSuccess": "Mock data generated successfully.",
+    "clearSuccess": "All data cleared successfully.",
+    "status": {
+      "title": "Current Status",
+      "courses": "Courses",
+      "tasks": "Tasks",
+      "exams": "Exams"
+    }
   },
   "login": {
     "title": "Sign in",

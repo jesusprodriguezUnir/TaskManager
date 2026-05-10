@@ -61,6 +61,7 @@ from .routers import (
     files as files_router,
     settings as settings_router,
     internal as internal_router,
+    simulation as simulation_router,
 )
 
 
@@ -134,6 +135,7 @@ def create_app() -> FastAPI:
         files_router.router,
         settings_router.router,
         internal_router.router,
+        simulation_router.router,
     ]:
         app.include_router(r, prefix="/api")
 

@@ -22,13 +22,13 @@ export default defineConfig({
         ? [".trycloudflare.com", ".cfargotunnel.com"]
         : undefined,
     proxy: {
-      "/api": { target: "http://localhost:8000", changeOrigin: true },
-      "/oauth": { target: "http://localhost:8000", changeOrigin: true },
-      "/mcp": { target: "http://localhost:8000", changeOrigin: true },
+      "/api": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/oauth": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/mcp": { target: "http://127.0.0.1:8000", changeOrigin: true },
       // Only proxy oauth-* well-known endpoints to the backend (FastAPI OAuth
       // metadata). Other /.well-known/* paths (e.g. security.txt) stay as
       // static files served from web/public/.well-known/.
-      "^/\\.well-known/oauth-": { target: "http://localhost:8000", changeOrigin: true },
+      "^/\\.well-known/oauth-": { target: "http://127.0.0.1:8000", changeOrigin: true },
     },
   },
 });

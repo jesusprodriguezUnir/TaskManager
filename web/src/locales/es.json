@@ -43,7 +43,26 @@
     "archive": "Archivo",
     "sections": "Secciones",
     "volumes": "Volúmenes",
-    "pages": "Páginas"
+    "pages": "Páginas",
+    "simulation": "Simulación"
+  },
+  "simulation": {
+    "title": "Simulación de Datos",
+    "description": "Puebla la aplicación con datos de prueba para testeo o vacía todo para empezar de cero.",
+    "seedBtn": "Generar Datos de Prueba",
+    "clearBtn": "Vaciar Todo",
+    "confirmClearTitle": "¿Vaciar todos los datos?",
+    "confirmClearBody": "Esto eliminará permanentemente todos los cursos, tareas, exámenes y archivos. Esta acción no se puede deshacer.",
+    "seeding": "Generando datos...",
+    "clearing": "Vaciando datos...",
+    "seedSuccess": "Datos de prueba generados con éxito.",
+    "clearSuccess": "Todos los datos han sido borrados.",
+    "status": {
+      "title": "Estado Actual",
+      "courses": "Materias",
+      "tasks": "Tareas",
+      "exams": "Exámenes"
+    }
   },
   "login": {
     "title": "Iniciar sesión",

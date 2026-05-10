@@ -21,6 +21,7 @@ const Exams = lazy(() => import("@/routes/exams"));
 const Files = lazy(() => import("@/routes/files"));
 const Activity = lazy(() => import("@/routes/activity"));
 const Settings = lazy(() => import("@/routes/settings"));
+const Simulation = lazy(() => import("@/routes/simulation"));
 
 // Marketing landing is only for the hosted openstudy.dev deploy. Self-hosters
 // leave VITE_SHOW_LANDING unset/false so `/` jumps straight to the app, same
@@ -46,6 +47,7 @@ const router = createBrowserRouter([
       { path: "files", element: <Files /> },
       { path: "activity", element: <Activity /> },
       { path: "settings", element: <Settings /> },
+      { path: "simulation", element: <Simulation /> },
     ],
   },
 ]);

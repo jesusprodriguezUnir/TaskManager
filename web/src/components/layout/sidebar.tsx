@@ -7,6 +7,7 @@ import {
   GraduationCap,
   Activity,
   Settings,
+  FlaskConical,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAppSettings, useCourses, useDashboard } from "@/lib/queries";
@@ -45,9 +46,10 @@ const workspace: NavItemDef[] = [
 const systemItems: NavItemDef[] = [
   { to: "/app/activity", labelKey: "nav.activity", icon: Activity },
   { to: "/app/settings", labelKey: "nav.settings", icon: Settings },
+  { to: "/app/simulation", labelKey: "nav.simulation", icon: FlaskConical },
 ];
 
-const mobileOrder = ["/app", "/app/courses", "/app/tasks", "/app/files", "/app/exams"];
+const mobileOrder = ["/app", "/app/courses", "/app/tasks", "/app/files", "/app/exams", "/app/simulation"];
 
 export function Sidebar() {
   const { t } = useTranslation();
